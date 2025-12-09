@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Multi-Lender Pricing (Start with 1 Lender)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Simple styling -->
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f5f8;
+      color: #222;
+    }
+    header {
+      background: #1f2933;
+      color: #fff;
+      padding: 16px 24px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+    header p {
+      margin: 4px 0 0;
+      font-size: 13px;
+      opacity: 0.8;
+    }
+    main {
+      max-width: 1100px;
+      margin: 24px auto 40px;
+      padding: 0 16px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 3px 8px rgba(15, 23, 42, 0.08);
+    }
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+    .card small {
+      color: #555;
+      display: block;
+      margin-bottom: 8px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 3px;
+      color: #374151;
+    }
+    input, select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 6px 8px;
+      font-size: 14px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      margin-bottom: 8px;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.25);
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .col-3 {
+      flex: 1 1 180px;
+    }
+    .btn {
+      display: inline-block;
+      border: none;
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 14px;
+      cursor: pointer;
+      background: #2563eb;
+      color: #fff;
+      margin-top: 4px;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      background: #e5e7eb;
+      margin-right: 4px;
+    }
+    .badge-primary {
+      background: #2563eb;
+      color: #fff;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+    th, td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      white-space: nowrap;
+    }
+    th {
+      background: #f9fafb;
+      font-weight: 600;
+    }
+    .text-right { text-align: right; }
+    .muted { color: #6b7280; font-size: 12px; }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      background: #f3f4f6;
+    }
+    .alert {
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #fef9c3;
+      border: 1px solid #facc15;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    .error {
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #fee2e2;
+      border: 1px solid #f87171;
+      font-size: 13px;
+      margin-top: 8px;
+      color: #991b1b;
+    }
+    @media (max-width: 640px) {
+      header h1 {
+        font-size: 18px;
+      }
+    }
+  </style>
+
+  <!-- SheetJS (xlsx) to read .xls / .xlsx client-side -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>Pricing Engine (Start with 1 Lender – Multi-Lender Ready)</h1>
+  <p>Upload your lender rate sheet, enter a scenario, and see best-priced options.</p>
+</header>
+
+<main>
+  <!-- 1) Upload area -->
+  <section class="card">
+    <h2>1. Upload lender rate sheet</h2>
+    <small>
+      Start with your TPO Go Excel / CSV file. Later, you can upload multiple lender files –
+      this page is already coded to support more than one.
+    </small>
+
+    <div class="alert">
+      <strong>Important:</strong> Make sure your column headers roughly match what you configure in
+      the <code>columnMapping</code> in the script at the bottom of this page.
+      You can adjust that mapping to your actual header names.
+    </div>
+
+    <label for="rateFiles">Rate sheet file(s)</label>
+    <input id="rateFiles" type="file" multiple accept=".xls,.xlsx,.csv" />
+
+    <div id="fileStatus" class="muted" style="margin-top:4px;">
+      No files loaded yet.
+    </div>
+  </section>
+
+  <!-- 2) Scenario input -->
+  <section class="card">
+    <h2>2. Scenario</h2>
+    <small>Enter borrower & property details. The engine will filter eligible rows.</small>
+
+    <div class="row">
+      <div class="col-3">
+        <label for="loanAmount">Loan Amount</label>
+        <input id="loanAmount" type="number" placeholder="e.g. 500000" />
+      </div>
+      <div class="col-3">
+        <label for="propertyValue">Property Value</label>
+        <input id="propertyValue" type="number" placeholder="e.g. 700000" />
+      </div>
+      <div class="col-3">
+        <label for="fico">FICO</label>
+        <input id="fico" type="number" placeholder="e.g. 740" />
+      </div>
+      <div class="col-3">
+        <label for="state">State (optional)</label>
+        <input id="state" type="text" placeholder="e.g. NY" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-3">
+        <label for="purpose">Purpose</label>
+        <select id="purpose">
+          <option value="">Any</option>
+          <option value="Purchase">Purchase</option>
+          <option value="Refinance">Rate/Term Refi</option>
+          <option value="Cash-out">Cash-out Refi</option>
+        </select>
+      </div>
+      <div class="col-3">
+        <label for="occupancy">Occupancy</label>
+        <select id="occupancy">
+          <option value="">Any</option>
+          <option value="Primary">Primary</option>
+          <option value="Second Home">Second Home</option>
+          <option value="Investment">Investment</option>
+        </select>
+      </div>
+      <div class="col-3">
+        <label for="propertyType">Property Type</label>
+        <select id="propertyType">
+          <option value="">Any</option>
+          <option value="SFR">SFR</option>
+          <option value="2-4 Unit">2–4 Unit</option>
+          <option value="Condo">Condo</option>
+        </select>
+      </div>
+      <div class="col-3">
+        <label for="term">Term (years)</label>
+        <input id="term" type="number" placeholder="e.g. 30" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-3">
+        <label for="lockDays">Lock Days</label>
+        <input id="lockDays" type="number" placeholder="e.g. 30" />
+      </div>
+    </div>
+
+    <button id="runPricing" class="btn" disabled>3. Find Best Price</button>
+    <div id="scenarioError"></div>
+  </section>
+
+  <!-- 3) Results -->
+  <section class="card">
+    <h2>Results</h2>
+    <small>
+      Results sorted by best price (highest price = best rebate / lowest cost).
+      You can later change logic to “lowest rate” or “lowest payment”.
+    </small>
+
+    <div id="ltvDisplay" class="muted" style="margin-top:4px;"></div>
+
+    <div id="resultsContainer" style="margin-top:8px;">
+      <div class="muted">No results yet. Upload a rate sheet and run a scenario.</div>
+    </div>
+  </section>
+</main>
+
+<script>
+  /**********************************************************************
+   * CONFIG: Column mapping
+   *
+   * Edit the right-hand strings to match YOUR actual header names
+   * in the Excel/CSV rate sheet(s).
+   *
+   * For example, if your Excel header is "Note Rate", change rate: "Rate"
+   * to rate: "Note Rate".
+   **********************************************************************/
+  const columnMapping = {
+    lenderName: "Lender",        // optional; if missing, we’ll use file name
+    productName: "Product",      // e.g. "Conv 30 Yr Fixed"
+    rate: "Rate",                // numeric, like 6.375
+    price: "Price",              // numeric, like 1.250 (as points)
+    minFico: "MinFICO",          // numeric
+    maxFico: "MaxFICO",          // optional
+    minLTV: "MinLTV",            // optional
+    maxLTV: "MaxLTV",            // numeric
+    minLoan: "MinLoan",          // optional
+    maxLoan: "MaxLoan",          // optional
+    purpose: "Purpose",          // e.g. "Purchase", "Refinance", "Cash-out"
+    occupancy: "Occupancy",      // e.g. "Primary", "Second Home", "Investment"
+    propertyType: "PropType",    // e.g. "SFR", "Condo", "2-4 Unit"
+    term: "Term",                // e.g. 30
+    lockDays: "LockDays",        // e.g. 30, 45
+    state: "State"               // optional (NY, NJ, etc)
+  };
+
+  /**********************************************************************
+   * Data model
+   * lenders = [
+   *   { name: "TPO Go", products: [ row1, row2, ... ] },
+   *   { name: "Another Lender", products: [...] }
+   * ]
+   **********************************************************************/
+  let lenders = [];
+
+  const fileInput = document.getElementById("rateFiles");
+  const fileStatus = document.getElementById("fileStatus");
+  const runButton = document.getElementById("runPricing");
+  const resultsContainer = document.getElementById("resultsContainer");
+  const scenarioError = document.getElementById("scenarioError");
+  const ltvDisplay = document.getElementById("ltvDisplay");
+
+  fileInput.addEventListener("change", handleFiles);
+  runButton.addEventListener("click", runPricing);
+
+  function handleFiles(event) {
+    const files = Array.from(event.target.files || []);
+    lenders = [];
+    resultsContainer.innerHTML = '<div class="muted">No results yet. Run a scenario.</div>';
+    scenarioError.innerHTML = "";
+    ltvDisplay.textContent = "";
+
+    if (!files.length) {
+      fileStatus.textContent = "No files loaded yet.";
+      runButton.disabled = true;
+      return;
+    }
+
+    fileStatus.textContent = "Loading files...";
+    runButton.disabled = true;
+
+    let remaining = files.length;
+
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: "array" });
+
+          // Use first sheet by default
+          const firstSheetName = workbook.SheetNames[0];
+          const ws = workbook.Sheets[firstSheetName];
+
+          // Convert to JSON; header row becomes object keys
+          const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+          lenders.push({
+            name: file.name.replace(/\.[^.]+$/, ""), // file name without extension
+            products: rows
+          });
+        } catch (err) {
+          console.error("Failed to parse file:", file.name, err);
+        } finally {
+          remaining--;
+          if (remaining === 0) {
+            fileStatus.textContent = `Loaded ${lenders.length} lender file(s).`;
+            runButton.disabled = lenders.length === 0;
+          }
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  function getNumber(row, key) {
+    const raw = row[key];
+    if (raw === undefined || raw === null || raw === "") return null;
+    const v = Number(String(raw).replace(/[^0-9.\-]/g, ""));
+    return isNaN(v) ? null : v;
+  }
+
+  function normalizeString(value) {
+    if (!value && value !== 0) return "";
+    return String(value).trim().toLowerCase();
+  }
+
+  function runPricing() {
+    scenarioError.innerHTML = "";
+
+    const loanAmount = Number(document.getElementById("loanAmount").value);
+    const propertyValue = Number(document.getElementById("propertyValue").value);
+    const fico = Number(document.getElementById("fico").value);
+    const state = normalizeString(document.getElementById("state").value);
+    const purpose = normalizeString(document.getElementById("purpose").value);
+    const occupancy = normalizeString(document.getElementById("occupancy").value);
+    const propertyType = normalizeString(document.getElementById("propertyType").value);
+    const term = Number(document.getElementById("term").value);
+    const lockDays = Number(document.getElementById("lockDays").value);
+
+    if (!loanAmount || !propertyValue || !fico) {
+      scenarioError.innerHTML = '<div class="error">Please enter Loan Amount, Property Value, and FICO at minimum.</div>';
+      return;
+    }
+
+    const ltv = (loanAmount / propertyValue) * 100;
+    ltvDisplay.textContent = `Calculated LTV: ${ltv.toFixed(2)}%`;
+
+    let matches = [];
+
+    lenders.forEach(lender => {
+      lender.products.forEach(row => {
+        const map = columnMapping;
+
+        const rate = getNumber(row, map.rate);
+        const price = getNumber(row, map.price);
+        if (rate === null || price === null) return;
+
+        const rowMinFico = getNumber(row, map.minFico);
+        const rowMaxFico = getNumber(row, map.maxFico);
+        const rowMinLTV = getNumber(row, map.minLTV);
+        const rowMaxLTV = getNumber(row, map.maxLTV);
+        const rowMinLoan = getNumber(row, map.minLoan);
+        const rowMaxLoan = getNumber(row, map.maxLoan);
+        const rowTerm = getNumber(row, map.term);
+        const rowLock = getNumber(row, map.lockDays);
+
+        const rowPurpose = normalizeString(row[map.purpose]);
+        const rowOccupancy = normalizeString(row[map.occupancy]);
+        const rowPropType = normalizeString(row[map.propertyType]);
+        const rowState = normalizeString(row[map.state]);
+        const productName = row[map.productName] || "";
+        const explicitLenderName = row[map.lenderName];
+
+        // --- Basic numeric filters ---
+
+        if (rowMinFico !== null && fico < rowMinFico) return;
+        if (rowMaxFico !== null && fico > rowMaxFico) return;
+
+        if (rowMinLTV !== null && ltv < rowMinLTV) return;
+        if (rowMaxLTV !== null && ltv > rowMaxLTV) return;
+
+        if (rowMinLoan !== null && loanAmount < rowMinLoan) return;
+        if (rowMaxLoan !== null && loanAmount > rowMaxLoan) return;
+
+        if (term && rowTerm !== null && rowTerm !== term) return;
+
+        if (lockDays && rowLock !== null && rowLock !== lockDays) return;
+
+        // --- Text / categorical filters (purpose, occupancy, etc.) ---
+
+        if (purpose && rowPurpose && rowPurpose !== purpose) return;
+        if (occupancy && rowOccupancy && rowOccupancy !== occupancy) return;
+        if (propertyType && rowPropType && rowPropType !== propertyType) return;
+        if (state && rowState && rowState !== state) return;
+
+        // Passed filters
+        matches.push({
+          lender: explicitLenderName || lender.name,
+          productName: productName,
+          rate: rate,
+          price: price,
+          term: rowTerm,
+          lockDays: rowLock,
+          ltv: ltv
+        });
+      });
+    });
+
+    if (!matches.length) {
+      resultsContainer.innerHTML = '<div class="error">No matching rows found. Check your column mapping and scenario.</div>';
+      return;
+    }
+
+    // Sort by best price (highest price first)
+    matches.sort((a, b) => b.price - a.price);
+
+    const best = matches[0];
+
+    let html = "";
+
+    // Highlight best-priced row
+    html += `
+      <div>
+        <span class="badge badge-primary">Best Price</span>
+        <span class="badge">Top match across ${matches.length} eligible row(s)</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Lender</th>
+            <th>Product</th>
+            <th class="text-right">Rate</th>
+            <th class="text-right">Price</th>
+            <th class="text-right">Term</th>
+            <th class="text-right">Lock</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${escapeHtml(best.lender)}</td>
+            <td>${escapeHtml(best.productName || "")}</td>
+            <td class="text-right">${best.rate.toFixed(3)}%</td>
+            <td class="text-right">${best.price.toFixed(3)}</td>
+            <td class="text-right">${best.term || ""}</td>
+            <td class="text-right">${best.lockDays || ""}</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+
+    // Show a few alternates under best row
+    const alternates = matches.slice(1, 10);
+
+    if (alternates.length) {
+      html += `
+        <div style="margin-top:12px;" class="muted">
+          Other eligible options (sorted by price):
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Lender</th>
+              <th>Product</th>
+              <th class="text-right">Rate</th>
+              <th class="text-right">Price</th>
+              <th class="text-right">Term</th>
+              <th class="text-right">Lock</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      alternates.forEach((row, idx) => {
+        html += `
+          <tr>
+            <td>${idx + 2}</td>
+            <td>${escapeHtml(row.lender)}</td>
+            <td>${escapeHtml(row.productName || "")}</td>
+            <td class="text-right">${row.rate.toFixed(3)}%</td>
+            <td class="text-right">${row.price.toFixed(3)}</td>
+            <td class="text-right">${row.term || ""}</td>
+            <td class="text-right">${row.lockDays || ""}</td>
+          </tr>
+        `;
+      });
+
+      html += `
+          </tbody>
+        </table>
+      `;
+    }
+
+    resultsContainer.innerHTML = html;
+  }
+
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+</script>
+
+</body>
+</html>
