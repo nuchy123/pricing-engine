@@ -25,15 +25,17 @@
       <section class="card form-card">
         <h2>Scenario Details</h2>
 
-        <div class="field-grid">
-          <div class="field">
-            <label for="program">Program</label>
-            <select id="program">
-              <option value="conf_30">Conforming 30 Year Fixed</option>
-              <option value="conf_15">Conforming 15 Year Fixed</option>
-              <!-- later: FHA / VA / HP / HB etc -->
-            </select>
-          </div>
+        <div class="field">
+  <label for="program">Program</label>
+  <select id="program" class="field-input">
+    <option value="conventional">Conventional</option>
+    <option value="fha">FHA</option>
+    <option value="homePossible">Home Possible</option>
+    <option value="homeReady">HomeReady</option>
+    <option value="nonqm">Non-QM</option>
+  </select>
+</div>
+
 
           <div class="field">
             <label for="lock">Lock Term</label>
