@@ -25,20 +25,34 @@ function populateProductTerms(terms) {
   });
 }
 
+// Identify available product terms from sheet names
+function detectTermsFromWorkbook(workbook) {
+  const terms = new Set();
 
-// Show status messages in the admin panel
-function setAdminStatus(msg, isError = false) {
-  const box = document.getElementById("adminStatus");
-  if (!box) return;
-  box.textContent = msg;
-  box.style.backgroundColor = isError ? "#fef2f2" : "#eff6ff";
-  box.style.color = isError ? "#b91c1c" : "#1d4ed8";
-  box.style.borderColor = isError ? "#fecaca" : "#bfdbfe";
+  workbook.SheetNames.forEach(sheetName => {
+    const name = sheetName.toUpperCase();
+
+    if (name.includes("30")) terms.add("30yr");
+    if (name.includes("25")) terms.add("25yr");
+    if (name.includes("20")) terms.add("20yr");
+    if (name.includes("15")) terms.add("15yr");
+    if (name.includes("10")) terms.add("10yr");
+    if (name.includes("ARM")) terms.add("arm");
+  });
+
+  // Fallback if nothing was detected
+  if (terms.size === 0) terms.add("30yr");
+
+  return Array.from(terms);
 }
 
-// Parse the workbook and build a simple base grid model
+// Parse workbook → Build placeholder model (kept the same)
 function buildModelFromWorkbook(workbook) {
-  // For now: use the first sheet and look for "CONVENTIONAL PRICING" / "CONFORMING 30 YEAR FIXED"
+  // Detect available terms (Task 3)
+  const detectedTerms = detectTermsFromWorkbook(workbook);
+  populateProductTerms(detectedTerms);
+
+  // For now: still use the FIRST sheet as before
   const firstSheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[firstSheetName];
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
@@ -82,7 +96,6 @@ function buildModelFromWorkbook(workbook) {
     if (!rawRate && !rawPrice) break;
     if (rawRate.toUpperCase().includes("CONFORMING")) break;
 
-    // Parse rate as number (e.g. 6.500) and price as float (e.g. 101.974)
     const rateNum = parseFloat(rawRate.replace(/[^\d.]/g, ""));
     const priceNum = parseFloat(rawPrice.replace(/[^\d.-]/g, ""));
 
@@ -98,15 +111,16 @@ function buildModelFromWorkbook(workbook) {
     throw new Error("No pricing rows were found under the Conforming 30 Year Fixed section.");
   }
 
-  // Model structure is simple for now, but can be extended later
+  // Model structure stays simple for now
   const model = {
     lastUpdated: new Date().toISOString(),
     sourceSheet: firstSheetName,
+    availableTerms: detectedTerms,   // <-- NEW FIELD
     programs: {
       conf_30: {
         id: "conf_30",
         label: "Conforming 30 Year Fixed",
-        baseGrid // array of { rate, price }
+        baseGrid
       }
     }
   };
@@ -126,17 +140,15 @@ function handleFile(file) {
   reader.onload = (ev) => {
     try {
       const data = new Uint8Array(ev.target.result);
-
-      // This supports .xls AND .xlsx when using xlsx.full.min.js
       const workbook = XLSX.read(data, { type: "array" });
 
       const model = buildModelFromWorkbook(workbook);
 
-      // Persist in localStorage so the front-end pricing page can use it
+      // Store in localStorage
       localStorage.setItem(MODEL_KEY, JSON.stringify(model));
 
       setAdminStatus(
-        `Loaded ${file.name}. Found ${model.programs.conf_30.baseGrid.length} Conforming 30 Year Fixed rows (30-Day column).`
+        `Loaded ${file.name}. Found ${model.programs.conf_30.baseGrid.length} rows.`
       );
     } catch (err) {
       console.error(err);
@@ -151,11 +163,9 @@ function handleFile(file) {
     setAdminStatus("Error reading file from your computer.", true);
   };
 
-  // Read as ArrayBuffer so it works for both .xls and .xlsx
   reader.readAsArrayBuffer(file);
 }
 
-// Wire up events
 document.addEventListener("DOMContentLoaded", () => {
   const fileInput = document.getElementById("rateFile");
   const loadBtn = document.getElementById("loadPricing");
