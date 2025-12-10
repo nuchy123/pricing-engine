@@ -1,54 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mortgage Pricing Hub</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
 <body>
-  <div class="container">
-    <h1>Mortgage Pricing Hub</h1>
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <h1>Mortgage Pricing Hub</h1>
+        <p class="subtitle">
+          Simple, user-friendly pricing: only note rate &amp; monthly P&amp;I shown to the front end.
+        </p>
+      </div>
+      <nav class="header-nav">
+        <a href="admin.html" class="pill-link">Admin XLS Upload</a>
+      </nav>
+    </header>
 
-
-    <div class="flex">
-      <!-- ================= LEFT SIDE: INPUTS ================= -->
-      <div class="panel">
+    <main class="app-main">
+      <section class="card form-card">
         <h2>Scenario Details</h2>
 
-        <label>Program</label>
-@@ -33,7 +34,7 @@
-        <select id="occ">
-          <option value="primary">Primary Residence</option>
-          <option value="second">Second Home</option>
-          <option value="investment">Investment</option>
-        </select>
+        <div class="field-grid">
+          <div class="field">
+            <label for="program">Program</label>
+            <select id="program">
+              <option value="conf_30">Conforming 30 Year Fixed</option>
+              <option value="conf_15">Conforming 15 Year Fixed</option>
+              <!-- later: FHA / VA / HP / HB etc -->
+            </select>
+          </div>
 
-        <label>Property Type</label>
-@@ -60,29 +61,36 @@
-        <input id="zip" placeholder="e.g. 11230" />
+          <div class="field">
+            <label for="lock">Lock Term</label>
+            <select id="lock">
+              <option value="30">30 Days</option>
+              <option value="45">45 Days</option>
+              <option value="60">60 Days</option>
+            </select>
+          </div>
 
-        <label>Location (auto)</label>
-        <input id="locationDisplay" disabled placeholder="City / State from ZIP" />
+          <div class="field">
+            <label for="occ">Occupancy</label>
+            <select id="occ">
+              <option value="primary">Primary Residence</option>
+              <option value="second">Second Home</option>
+              <option value="investment">Investment</option>
+            </select>
+          </div>
 
-        <label>Purchase Price</label>
-        <input id="pp" placeholder="e.g. 700000" />
+          <div class="field">
+            <label for="ptype">Property Type</label>
+            <select id="ptype">
+              <option value="sf">Single Family / PUD</option>
+              <option value="condo">Condo</option>
+              <option value="2_4">2–4 Unit</option>
+            </select>
+          </div>
 
-        <label>Loan Amount</label>
-        <input id="loan" placeholder="Enter or auto" />
+          <div class="field">
+            <label for="fico">FICO Score</label>
+            <select id="fico">
+              <option value="780">780+</option>
+              <option value="760">760–779</option>
+              <option value="740">740–759</option>
+              <option value="720">720–739</option>
+              <option value="700">700–719</option>
+            </select>
+          </div>
 
-        <label>LTV (%)</label>
-        <input id="ltv" placeholder="Enter or auto" />
+          <div class="field">
+            <label for="purpose">Loan Purpose</label>
+            <select id="purpose">
+              <option value="purchase">Purchase</option>
+              <option value="rate_term">Rate &amp; Term Refi</option>
+              <option value="cash_out">Cash-out Refi</option>
+            </select>
+          </div>
 
-        <button id="runPrice">Get Pricing ➜</button>
-      </div>
+          <div class="field">
+            <label for="zip">ZIP Code</label>
+            <input id="zip" placeholder="e.g. 11230" />
+          </div>
 
-      <!-- ================= RIGHT SIDE: RESULTS ================= -->
-      <div class="panel">
+          <div class="field">
+            <label for="locationDisplay">Location (auto)</label>
+            <input id="locationDisplay" disabled placeholder="City, State (from ZIP)" />
+          </div>
+
+          <div class="field">
+            <label for="pp">Purchase Price</label>
+            <input id="pp" inputmode="decimal" placeholder="e.g. 700000" />
+          </div>
+
+          <div class="field">
+            <label for="loan">Loan Amount</label>
+            <input id="loan" inputmode="decimal" placeholder="Auto if PP + LTV" />
+          </div>
+
+          <div class="field">
+            <label for="ltv">LTV (%)</label>
+            <input id="ltv" inputmode="decimal" placeholder="Auto if PP + Loan" />
+          </div>
+        </div>
+
+        <div class="actions-row">
+          <button id="runPrice" class="btn-primary">Get Pricing</button>
+          <span id="formHint" class="hint">
+            Either enter <strong>Purchase Price</strong> + <strong>Loan Amount</strong>, or
+            <strong> Purchase Price</strong> + <strong>LTV</strong> and the third will auto-fill.
+          </span>
+        </div>
+      </section>
+
+      <section class="card result-card">
         <h2>Pricing Result</h2>
-        <div id="rateBox"></div>
-        <div id="paymentBox"></div>
-      </div>
+        <p class="subtitle">
+          We only show note rate &amp; monthly principal &amp; interest payment. All LLPA, payups, incentives
+          and broker compensation are applied internally and never shown to the borrower.
+        </p>
 
+        <div id="resultNotice" class="result-notice">
+          No scenario calculated yet. Fill the form and click <strong>Get Pricing</strong>.
+        </div>
 
-    </div>
+        <div id="duLpWrapper" class="du-lp-wrapper hidden">
+          <div class="du-lp-header">
+            <div class="col-label"></div>
+            <div class="col-label">Fannie Mae DU</div>
+            <div class="col-label">Freddie Mac LP</div>
+          </div>
 
+          <div class="du-lp-row">
+            <div class="row-label">Note Rate</div>
+            <div class="cell" id="rateDU">–</div>
+            <div class="cell" id="rateLP">–</div>
+          </div>
 
+          <div class="du-lp-row">
+            <div class="row-label">Est. Monthly P&amp;I</div>
+            <div class="cell" id="payDU">–</div>
+            <div class="cell" id="payLP">–</div>
+          </div>
+        </div>
 
+        <p id="disclaimer" class="disclaimer hidden">
+          Taxes, insurance, HOA dues and mortgage insurance are not included in this payment estimate.
+        </p>
+      </section>
+    </main>
 
-
+    <footer class="app-footer">
+      <span>Admin uploads are managed separately in</span>
+      <a href="admin.html">Admin XLS Upload</a>.
+    </footer>
   </div>
 
   <script src="pricing-engine.js"></script>
