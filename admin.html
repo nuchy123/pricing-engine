@@ -1,1 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin – TPO Go XLS Upload</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="top-bar">
+    <div class="logo">Admin – Mortgage Pricing Hub</div>
+    <nav class="top-actions">
+      <a href="index.html" class="btn btn-outline">Back to Pricing</a>
+    </nav>
+  </header>
 
+  <main class="admin-page">
+    <section class="card upload-panel">
+      <h2>Upload Daily TPO Go Rate Sheet</h2>
+      <p class="muted small">
+        Upload the original <strong>.xls</strong> or <strong>.xlsx</strong> TPO Go rate sheet.
+        Parsing runs entirely in your browser. The front-end pricing page will use the
+        most recently uploaded sheet stored in this browser.
+      </p>
+
+      <div class="upload-box">
+        <label for="rateSheetInput" class="field-group">
+          <span><strong>Rate Sheet File (.xls / .xlsx)</strong></span>
+          <input type="file" id="rateSheetInput" accept=".xls,.xlsx" />
+        </label>
+
+        <p class="muted small" style="margin-top:8px;">
+          For now, this admin parses the <strong>Conforming 30 Year Fixed</strong> section using the
+          <strong>30-Day</strong> column as the base grid.
+          Other programs can reuse this grid until we wire their specific sections.
+        </p>
+
+        <div id="uploadStatus" class="upload-status">
+          No file loaded yet.
+        </div>
+      </div>
+
+      <p class="muted small" style="margin-top:12px;">
+        Tip: Make sure you upload the original Excel file exported from TPO Go, not a PDF.
+      </p>
+    </section>
+  </main>
+
+  <!-- SheetJS – reads .xls and .xlsx in the browser -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="upload.js"></script>
+</body>
+</html>
