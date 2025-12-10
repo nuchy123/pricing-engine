@@ -1,6 +1,31 @@
 // Key used for storing the parsed pricing model in localStorage
 const MODEL_KEY = "tpoPricingModel_v1";
 
+// Utility: populate the Term dropdown on the front-end
+function populateProductTerms(terms) {
+  const termSelect = document.getElementById('productTerm');
+  if (!termSelect) return;
+
+  termSelect.innerHTML = '';
+
+  const niceLabels = {
+    '30yr': '30 Year Fixed',
+    '25yr': '25 Year Fixed',
+    '20yr': '20 Year Fixed',
+    '15yr': '15 Year Fixed',
+    '10yr': '10 Year Fixed',
+    'arm': 'ARM'
+  };
+
+  terms.forEach(termKey => {
+    const opt = document.createElement('option');
+    opt.value = termKey;
+    opt.textContent = niceLabels[termKey] || termKey;
+    termSelect.appendChild(opt);
+  });
+}
+
+
 // Show status messages in the admin panel
 function setAdminStatus(msg, isError = false) {
   const box = document.getElementById("adminStatus");
