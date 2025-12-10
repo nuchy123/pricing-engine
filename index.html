@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <title>Mortgage Pricing Hub</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- Tailwind via CDN -->
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- SheetJS for Excel parsing in the browser -->
+  <!-- SheetJS for Excel (supports .xls and .xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
   <style>
     body {
@@ -79,7 +79,7 @@
       <div>
         <h1 class="text-2xl md:text-3xl font-bold text-slate-900">Mortgage Pricing Hub</h1>
         <p class="text-sm text-slate-600 mt-1">
-          Simple, user-friendly pricing: only rate &amp; monthly payment shown to the front end.
+          Simple, user-friendly pricing: only note rate &amp; monthly P&amp;I shown to the front end.
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
@@ -98,7 +98,7 @@
               Admin – Upload Daily TPO Go Rate Sheet
             </h2>
             <p class="text-xs text-slate-600 mb-3">
-              Upload the original <strong>.xls</strong> / <strong>.xlsx</strong> TPO Go rate sheet.
+              Upload the original <strong>.xls</strong> or <strong>.xlsx</strong> TPO Go rate sheet.
               Parsing runs in your browser only. Front-end users never see this panel.
             </p>
 
@@ -115,11 +115,10 @@
             <p id="adminStatus" class="text-xs mt-3 text-slate-600"></p>
 
             <p class="text-[0.7rem] mt-3 text-slate-500">
-              CURRENT DEMO: Extracts Conforming 30-Year Fixed (30-day column) from the
-              "CONVENTIONAL PRICING" grid and stores it as the base grid. Other programs reuse this
-              grid until their own sections are wired. Broker comp <strong>+2.50%</strong> is always
-              added internally. LLPA &amp; payup logic are stubs in
-              <code>getLlpaAdjustment()</code> and <code>getPayupAdjustment()</code>.
+              Current version: Parses the Conforming 30-Year Fixed grid (30-day column) from the
+              conventional pricing section and stores it in memory. Other programs reuse this grid
+              until their own sections are wired. LLPA &amp; payup functions are present but currently
+              return 0 until we enter the full tables.
             </p>
           </div>
         </div>
@@ -133,8 +132,8 @@
         <div class="card">
           <h2 class="text-lg font-semibold text-slate-900 mb-2">Scenario Details</h2>
           <p class="text-xs text-slate-500 mb-4">
-            Fill in the basic loan scenario. LTV and location are calculated automatically to keep it simple
-            for Realtors and borrowers.
+            Fill in the basic loan scenario. LTV and location are calculated automatically to keep it
+            simple for Realtors and borrowers.
           </p>
 
           <form id="pricingForm" class="space-y-4">
@@ -210,8 +209,8 @@
                 <label class="label" for="purpose">Loan Purpose</label>
                 <select id="purpose">
                   <option value="purchase">Purchase</option>
-                  <option value="rt">Rate / Term Refinance</option>
-                  <option value="cashout">Cash-Out Refinance</option>
+                  <option value="rt">Rate / Term Refi</option>
+                  <option value="cashout">Cash-Out Refi</option>
                 </select>
               </div>
             </div>
@@ -241,18 +240,18 @@
               <div>
                 <label class="label" for="loanAmount">Loan Amount</label>
                 <input id="loanAmount" class="input" type="number" min="0" step="1000"
-                       placeholder="Enter or auto-calc" />
+                       placeholder="Enter or auto" />
               </div>
               <div>
                 <label class="label" for="ltv">LTV (%)</label>
                 <input id="ltv" class="input" type="number" min="0" max="200" step="0.01"
-                       placeholder="Enter or auto-calc" />
+                       placeholder="Enter or auto" />
               </div>
             </div>
 
             <p class="text-[0.7rem] text-slate-500">
-              Either enter <strong>Purchase Price + Loan Amount</strong> and LTV will auto-fill, or
-              <strong>Purchase Price + LTV</strong> and Loan Amount will auto-fill.
+              Either enter <strong>Purchase Price + Loan Amount</strong> and LTV will auto-fill,
+              or <strong>Purchase Price + LTV</strong> and Loan Amount will auto-fill.
             </p>
 
             <div class="pt-3">
@@ -270,7 +269,7 @@
           <h2 class="text-lg font-semibold text-slate-900 mb-2">Pricing Result</h2>
           <p class="text-xs text-slate-500 mb-4">
             We only show the <strong>note rate</strong> and <strong>principal &amp; interest payment</strong>.
-            All price, LLPA, incentives, and broker compensation are applied internally and never shown to users.
+            All price, LLPA, payup incentives, and broker compensation are applied internally.
           </p>
 
           <div id="resultArea"
@@ -284,16 +283,11 @@
   </div>
 
   <script>
-    /***********************************************************************
-     * GLOBAL STATE
-     **********************************************************************/
-    let conventionalBaseGrid = []; // parsed Conforming 30Y grid (30-day column)
-    const pricingGrids = {};       // per-program grids (extend later)
-    const BROKER_COMP_PERCENT = 2.5; // 2.50% broker compensation added to all programs
+    /***************** GLOBAL STATE *****************/
+    let conventionalBaseGrid = [];
+    const pricingGrids = {};
+    const BROKER_COMP_PERCENT = 2.5;
 
-    /***********************************************************************
-     * ADMIN TOGGLE
-     **********************************************************************/
     function isAdminMode() {
       const params = new URLSearchParams(window.location.search);
       return params.get("admin") === "1";
@@ -309,9 +303,7 @@
       setupPricingForm();
     });
 
-    /***********************************************************************
-     * ADMIN: UPLOAD & PARSE TPO SHEET
-     **********************************************************************/
+    /***************** ADMIN XLS UPLOAD *****************/
     function setupAdminUpload() {
       const fileInput = document.getElementById("rateSheetFile");
       const btn = document.getElementById("parseSheetBtn");
@@ -327,17 +319,18 @@
 
         const file = fileInput.files[0];
         const reader = new FileReader();
+
         reader.onload = function(e) {
           try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: "array" });
+            const data = e.target.result; // binary string
+            const workbook = XLSX.read(data, { type: "binary" });
 
             conventionalBaseGrid = extractConventional30Grid(workbook);
-            pricingGrids["conv30"] = conventionalBaseGrid; // for now, others reuse this
+            pricingGrids["conv30"] = conventionalBaseGrid;
 
-            if (conventionalBaseGrid.length === 0) {
+            if (!conventionalBaseGrid.length) {
               statusEl.textContent =
-                "Loaded sheet, but could not find CONVENTIONAL 30YR grid. Parser may need tuning.";
+                "Loaded file, but could not locate the CONVENTIONAL 30Y grid. Parser may need tuning.";
               statusEl.className = "text-xs mt-3 text-red-600";
             } else {
               statusEl.textContent =
@@ -346,18 +339,16 @@
             }
           } catch (err) {
             console.error(err);
-            statusEl.textContent = "Error reading workbook. Check format or try another file.";
+            statusEl.textContent = "Error reading workbook. Check sheet name/layout or try another file.";
             statusEl.className = "text-xs mt-3 text-red-600";
           }
         };
-        reader.readAsArrayBuffer(file);
+
+        // use binary read so legacy .xls works
+        reader.readAsBinaryString(file);
       });
     }
 
-    /**
-     * Parse Conforming 30-Year Fixed 30-day price grid.
-     * This is a best-effort parser tuned to the "CONVENTIONAL PRICING" layout.
-     */
     function extractConventional30Grid(workbook) {
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
@@ -365,22 +356,19 @@
 
       let conventionalRowIndex = -1;
       for (let i = 0; i < rows.length; i++) {
-        const rowStr = rows[i].join(" ").toUpperCase();
-        if (rowStr.includes("CONVENTIONAL PRICING")) {
+        const text = rows[i].join(" ").toUpperCase();
+        if (text.includes("CONVENTIONAL PRICING")) {
           conventionalRowIndex = i;
           break;
         }
       }
       if (conventionalRowIndex === -1) return [];
 
-      // look for header with "Rate" + "15-Day" + "30-Day"
-      let headerRowIndex = -1;
-      let rateCol = -1;
-      let col30 = -1;
+      let headerRowIndex = -1, rateCol = -1, col30 = -1;
       for (let i = conventionalRowIndex; i < rows.length; i++) {
         const row = rows[i].map(c => String(c).trim());
         const upper = row.map(c => c.toUpperCase());
-        if (upper.includes("RATE") && upper.some(c => c.includes("15")) && upper.some(c => c.includes("30"))) {
+        if (upper.includes("RATE") && upper.some(c => c.includes("30"))) {
           headerRowIndex = i;
           rateCol = upper.indexOf("RATE");
           col30 = upper.findIndex(c => c.includes("30"));
@@ -403,9 +391,7 @@
       return grid;
     }
 
-    /***********************************************************************
-     * ZIP → CITY / STATE (zone stub)
-     **********************************************************************/
+    /***************** ZIP LOOKUP *****************/
     function setupZipAutoLookup() {
       const zipInput = document.getElementById("zip");
       const cityEl = document.getElementById("cityDisplay");
@@ -426,7 +412,7 @@
         zipTimeout = setTimeout(() => {
           fetch(`https://api.zippopotam.us/us/${zip}`)
             .then(res => {
-              if (!res.ok) throw new Error("ZIP not found");
+              if (!res.ok) throw new Error();
               return res.json();
             })
             .then(data => {
@@ -444,25 +430,16 @@
               countyEl.textContent = "–";
               window.currentPricingZone = 0;
             });
-        }, 350);
+        }, 300);
       });
     }
 
-    // Stub: update later to match your LLPA zone mapping.
     function getZoneForStateAndZip(stateAbbr, zip) {
-      const zoneByState = {
-        "NY": 1,
-        "NJ": 2,
-        "CT": 3,
-        "FL": 4,
-        "CA": 5
-      };
+      const zoneByState = { "NY": 1, "NJ": 2, "CT": 3, "FL": 4, "CA": 5 };
       return zoneByState[stateAbbr] || 0;
     }
 
-    /***********************************************************************
-     * LTV AUTO CALC
-     **********************************************************************/
+    /***************** LTV AUTOCALC *****************/
     function setupLtvAutoCalc() {
       const pp = document.getElementById("purchasePrice");
       const la = document.getElementById("loanAmount");
@@ -473,8 +450,8 @@
         const purchase = parseFloat(pp.value);
         const loan = parseFloat(la.value);
         if (purchase > 0 && loan > 0) {
-          const ratio = (loan / purchase) * 100;
-          ltv.value = ratio.toFixed(2);
+          const pct = (loan / purchase) * 100;
+          ltv.value = pct.toFixed(2);
         }
       }
       function recalcFromLtv() {
@@ -494,9 +471,7 @@
       ltv.addEventListener("input", recalcFromLtv);
     }
 
-    /***********************************************************************
-     * PRICING ENGINE
-     **********************************************************************/
+    /***************** PRICING ENGINE *****************/
     function setupPricingForm() {
       const form = document.getElementById("pricingForm");
       const resultArea = document.getElementById("resultArea");
@@ -506,44 +481,34 @@
         e.preventDefault();
 
         const program = document.getElementById("program").value;
-        const lockTerm = document.getElementById("lockTerm").value;
         const occupancy = document.getElementById("occupancy").value;
         const propertyType = document.getElementById("propertyType").value;
         const fico = parseInt(document.getElementById("fico").value, 10);
         const purpose = document.getElementById("purpose").value;
-        const zip = document.getElementById("zip").value.trim();
         const purchasePrice = parseFloat(document.getElementById("purchasePrice").value);
         const loanAmount = parseFloat(document.getElementById("loanAmount").value);
         const ltv = parseFloat(document.getElementById("ltv").value);
-        const city = document.getElementById("cityDisplay").textContent;
         const stateAbbr = document.getElementById("stateDisplay").textContent;
+        const zone = window.currentPricingZone || 0;
 
-        if (!loanAmount || loanAmount <= 0 || !purchasePrice || purchasePrice <= 0) {
+        if (!loanAmount || !purchasePrice || loanAmount <= 0 || purchasePrice <= 0) {
           resultArea.innerHTML =
             `<p class="text-sm text-red-600">Please enter a valid Purchase Price and Loan Amount (or LTV).</p>`;
           return;
         }
 
-        if (!conventionalBaseGrid || conventionalBaseGrid.length === 0) {
+        if (!conventionalBaseGrid.length) {
           resultArea.innerHTML =
             `<p class="text-sm text-red-600">No pricing grid loaded. Go to <strong>?admin=1</strong> and upload the daily rate sheet.</p>`;
           return;
         }
 
-        // Choose base grid for this program.
         let baseRows = pricingGrids[program];
-        if (!baseRows || baseRows.length === 0) {
-          // Fallback for now: reuse conv30 grid
-          baseRows = conventionalBaseGrid;
-        }
+        if (!baseRows || !baseRows.length) baseRows = conventionalBaseGrid;
 
-        const zone = window.currentPricingZone || 0;
         const isHomeStyle = (program === "homestyle");
 
-        let quotes = [];
-
         if (isHomeStyle) {
-          // HomeStyle is DU-only
           const duQuote = buildQuoteFromGrid({
             label: "Fannie Mae DU Eligible",
             program,
@@ -567,7 +532,6 @@
           return;
         }
 
-        // For ALL other programs, show LP + DU side-by-side (universal dual display).
         const lpQuote = buildQuoteFromGrid({
           label: "Fannie Mae LP Eligible",
           program,
@@ -597,7 +561,6 @@
           payupFlavor: "DU"
         });
 
-        // A: always show two cards, even if one side can't price
         if (!lpQuote && !duQuote) {
           resultArea.innerHTML =
             `<p class="text-sm text-red-600">No executable pricing found for this scenario.</p>`;
@@ -607,12 +570,6 @@
       });
     }
 
-    /**
-     * Build one quote:
-     * - Choose a base rate row
-     * - Add LLPA, payups (except HB), +2.50% comp
-     * - Compute P&I payment
-     */
     function buildQuoteFromGrid({
       label,
       program,
@@ -627,11 +584,9 @@
       zone,
       payupFlavor
     }) {
-      if (!baseRows || baseRows.length === 0) return null;
+      if (!baseRows || !baseRows.length) return null;
 
-      // For now: pick lowest rate row
-      const sorted = baseRows.slice().sort((a, b) => a.rate - b.rate);
-      const row = sorted[0];
+      const row = baseRows.slice().sort((a, b) => a.rate - b.rate)[0];
       if (!row) return null;
 
       const baseRate = row.rate;
@@ -656,8 +611,7 @@
         payupFlavor
       });
 
-      const finalPrice = basePrice + BROKER_COMP_PERCENT + llpaAdj + payupAdj;
-
+      const finalPrice = basePrice + BROKER_COMP_PERCENT + payupAdj - llpaAdj;
       const termYears = getProgramTermYears(program);
       const payment = calculateMonthlyPayment(loanAmount, baseRate, termYears);
 
@@ -673,35 +627,23 @@
     }
 
     function getProgramTermYears(program) {
-      // simple mapping – tweak as needed
       if (program === "conv15" || program === "hr15" || program === "hb15") return 15;
       if (program === "conv20" || program === "hp20") return 20;
-      // default to 30
       return 30;
     }
 
-    // LLPA stub (replace with full LLPA table mapping)
+    // TODO: fill with real LLPA table logic
     function getLlpaAdjustment({ program, ltv, fico, occupancy, propertyType, purpose, stateAbbr, zone }) {
-      // TODO: wire to your full LLPA PDF/Excel grid.
       return 0;
     }
 
-    // Payup stub (with special rule: NO payups for High Balance)
+    // TODO: fill with real payup table logic
     function getPayupAdjustment({ program, rate, occupancy, stateAbbr, payupFlavor }) {
-      // High Balance: NO payups, ever.
-      if (program === "hb30" || program === "hb15") {
-        return 0;
-      }
-
-      // TODO: wire to your payup matrix:
-      //  - map state + occupancy + payupFlavor (LP/DU) to correct payup cell
-      //  - e.g. NY Primary, Investment-no NY/FL, FL LP vs FL DU, etc.
+      if (program === "hb30" || program === "hb15") return 0;
+      // When no matching DU payup in table, DU should still price (just 0 payup).
       return 0;
     }
 
-    /**
-     * Monthly P&I payment for fixed-rate mortgage.
-     */
     function calculateMonthlyPayment(loanAmount, annualRate, termYears) {
       const r = (annualRate / 100) / 12;
       const n = termYears * 12;
@@ -709,9 +651,7 @@
       return loanAmount * (r / (1 - Math.pow(1 + r, -n)));
     }
 
-    /***********************************************************************
-     * RENDERING
-     **********************************************************************/
+    /***************** RENDERING *****************/
     function renderSingleCardHtml(q) {
       const rateStr = q.rate.toFixed(3) + "%";
       const payStr = "$" + q.payment.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -736,8 +676,7 @@
                 </div>
               </div>
               <p class="text-[0.7rem] text-slate-500 mt-3">
-                Internal price, LLPA, incentives, and broker compensation are applied behind the scenes
-                and not displayed here.
+                Internal price, LLPA, incentives, and broker compensation are applied but not shown here.
               </p>
             </div>
           </div>
@@ -746,7 +685,6 @@
     }
 
     function renderDualCardsHtml(lp, du) {
-      // A: always show two cards, even if one side missing.
       const lpAvailable = !!lp;
       const duAvailable = !!du;
 
@@ -803,7 +741,7 @@
                 </div>
               </div>
               <p class="text-[0.7rem] text-slate-500 mt-3">
-                Payups and LLPA for DU are applied internally (except High Balance, which has no payups).
+                DU pricing still shows even if no DU payup exists; in that case payup is treated as 0.
               </p>
             </div>
           </div>
