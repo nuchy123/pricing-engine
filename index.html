@@ -1,96 +1,172 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>Mortgage Pricing Hub</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
-  <div class="container">
-    <h1>Mortgage Pricing Hub</h1>
-    <p class="subtitle">Simple, user-friendly pricing: only note rate & monthly payment shown to the front end.</p>
+  <header class="top-bar">
+    <div class="logo">Mortgage Pricing Hub</div>
+    <nav class="top-actions">
+      <!-- Simple link to the admin upload page -->
+      <a href="admin.html" class="btn btn-outline">Admin XLS Upload</a>
+    </nav>
+  </header>
 
-    <div class="grid">
-      <!-- ================= LEFT SIDE ================= -->
-      <section class="card">
-        <h2>Scenario Details</h2>
+  <main class="page">
+    <section class="card scenario-card">
+      <h2>Scenario Details</h2>
+      <p class="muted">
+        Fill in the basic loan scenario. LTV and payment are calculated automatically.
+        Pricing is based on the latest rate sheet uploaded in the admin.
+      </p>
 
-        <label>Program</label>
-        <select id="program">
-          <option value="30y">Conforming 30 Year Fixed</option>
-          <option value="15y">Conforming 15 Year Fixed</option>
-        </select>
+      <form id="scenarioForm">
+        <!-- Program -->
+        <div class="field-group">
+          <label for="program">Program</label>
+          <select id="program" name="program">
+            <option value="CONV_30Y" selected>Conforming 30 Year Fixed</option>
+            <option value="CONV_20Y">Conforming 20 Year Fixed</option>
+            <option value="CONV_15Y">Conforming 15 Year Fixed</option>
+            <option value="CONV_10Y">Conforming 10 Year Fixed</option>
+            <option value="HP_30Y">Home Possible 30 Year Fixed</option>
+            <option value="HP_20Y">Home Possible 20 Year Fixed</option>
+            <option value="HB_30Y">High Balance 30 Year Fixed</option>
+            <!-- You can add more programs later – they will all reuse the same base grid
+                 until we wire their specific grids from the XLS. -->
+          </select>
+        </div>
 
-        <label>Lock Term</label>
-        <select id="lock">
-          <option value="30">30 Days</option>
-          <option value="45">45 Days</option>
-          <option value="60">60 Days</option>
-        </select>
+        <!-- Lock term -->
+        <div class="field-group">
+          <label for="lockTerm">Lock Term</label>
+          <select id="lockTerm" name="lockTerm">
+            <option value="30" selected>30 Days</option>
+            <option value="45">45 Days</option>
+            <option value="60">60 Days</option>
+          </select>
+        </div>
 
-        <label>Occupancy</label>
-        <select id="occ">
-          <option value="primary">Primary Residence</option>
-          <option value="second">Second Home</option>
-          <option value="inv">Investment</option>
-        </select>
+        <!-- Occupancy -->
+        <div class="field-group">
+          <label for="occupancy">Occupancy</label>
+          <select id="occupancy" name="occupancy">
+            <option value="PRIM" selected>Primary Residence</option>
+            <option value="SECOND">Second Home</option>
+            <option value="INV">Investment Property</option>
+          </select>
+        </div>
 
-        <label>Property Type</label>
-        <select id="ptype">
-          <option value="sf">Single Family / PUD</option>
-          <option value="condo">Condo</option>
-          <option value="2-4">2–4 Unit</option>
-        </select>
+        <!-- Property type -->
+        <div class="field-group">
+          <label for="propertyType">Property Type</label>
+          <select id="propertyType" name="propertyType">
+            <option value="SFR" selected>Single Family / PUD</option>
+            <option value="CONDO">Condo</option>
+            <option value="2_4_UNIT">2–4 Units</option>
+          </select>
+        </div>
 
-        <label>FICO</label>
-        <select id="fico">
-          <option value="780">780+</option>
-          <option value="760">760–779</option>
-          <option value="740">740–759</option>
-        </select>
+        <!-- FICO -->
+        <div class="field-group">
+          <label for="fico">FICO Score</label>
+          <select id="fico" name="fico">
+            <option value="780" selected>780+</option>
+            <option value="760">760–779</option>
+            <option value="740">740–759</option>
+            <option value="720">720–739</option>
+            <option value="700">700–719</option>
+            <option value="680">680–699</option>
+            <option value="660">660–679</option>
+            <option value="640">640–659</option>
+            <option value="620">620–639</option>
+          </select>
+        </div>
 
-        <label>Loan Purpose</label>
-        <select id="purpose">
-          <option value="purchase">Purchase</option>
-          <option value="refi">Refinance</option>
-        </select>
+        <!-- Loan purpose -->
+        <div class="field-group">
+          <label for="purpose">Loan Purpose</label>
+          <select id="purpose" name="purpose">
+            <option value="PURCHASE" selected>Purchase</option>
+            <option value="RATE_TERM">Rate &amp; Term Refi</option>
+            <option value="CASH_OUT">Cash-Out Refi</option>
+          </select>
+        </div>
 
-        <label>ZIP Code</label>
-        <input id="zip" placeholder="e.g. 11230" />
+        <!-- ZIP + location (auto) -->
+        <div class="field-group">
+          <label for="zip">ZIP Code</label>
+          <input id="zip" name="zip" type="text" inputmode="numeric" placeholder="e.g. 11230" maxlength="10" />
+        </div>
 
-        <label>Location (auto)</label>
-        <input id="locationDisplay" disabled placeholder="City, State from ZIP" />
+        <div class="field-group">
+          <label>Location (auto)</label>
+          <input id="locationDisplay" type="text" readonly placeholder="State / County / City (from ZIP)" />
+        </div>
 
-        <label>Purchase Price</label>
-        <input id="pp" placeholder="e.g. 700000" />
+        <!-- Purchase / Loan / LTV -->
+        <div class="field-group">
+          <label for="purchasePrice">Purchase Price</label>
+          <input id="purchasePrice" name="purchasePrice" type="number" min="0" step="1000" placeholder="e.g. 700000" />
+        </div>
 
-        <label>Loan Amount</label>
-        <input id="loan" placeholder="Auto if PP + LTV entered" />
+        <div class="field-group">
+          <label for="loanAmount">Loan Amount</label>
+          <input id="loanAmount" name="loanAmount" type="number" min="0" step="1000" placeholder="Enter or auto" />
+        </div>
 
-        <label>LTV (%)</label>
-        <input id="ltv" placeholder="Auto if PP + Loan entered" />
+        <div class="field-group">
+          <label for="ltv">LTV (%)</label>
+          <input id="ltv" name="ltv" type="number" min="0" max="100" step="0.01" placeholder="Enter or auto" />
+        </div>
 
-        <button id="runPrice" class="btn-primary">Get Pricing ➜</button>
-      </section>
+        <p class="muted small">
+          Either enter <strong>Purchase Price + Loan Amount</strong> and LTV will auto-fill,
+          or <strong>Purchase Price + LTV</strong> and Loan Amount will auto-fill.
+        </p>
 
-      <!-- ================= RIGHT SIDE ================= -->
-      <section class="card">
-        <h2>Pricing Result</h2>
-        <p>Only rate & monthly P&I payment shown. LLPA, payups, & broker comp are applied internally.</p>
+        <button type="submit" class="btn primary" id="getPricingBtn">
+          Get Pricing →
+        </button>
+      </form>
+    </section>
 
-        <div id="rateBox" class="result-box rate"></div>
-        <div id="paymentBox" class="result-box payment"></div>
-      </section>
-    </div>
+    <section class="card result-card">
+      <h2>Pricing Result</h2>
+      <p class="muted small">
+        We only show the <strong>note rate</strong> and <strong>principal &amp; interest payment</strong>.
+        All price, LLPA, payup incentives, and broker compensation are applied internally and never shown to users.
+      </p>
 
-    <footer>
-      <p class="admin-note">Admin XLS uploads are managed separately in <a href="admin.html">Admin Upload</a>.</p>
-    </footer>
+      <div id="pricingStatus" class="status">No scenario calculated yet.</div>
 
-  </div>
+      <div id="pricingOutput" class="result hidden">
+        <div class="result-rate">
+          <span class="label">Selected Rate</span>
+          <span class="value" id="resultRate"></span>
+        </div>
+        <div class="result-payment">
+          <span class="label">Est. Monthly P&amp;I Payment</span>
+          <span class="value" id="resultPayment"></span>
+        </div>
+        <p class="muted small" id="resultDetails"></p>
+      </div>
+    </section>
+  </main>
 
-  <script src="pricing-engine.js"></script>
+  <footer class="footer">
+    Admin uploads are managed separately in
+    <a href="admin.html">Admin XLS Upload</a>.
+  </footer>
+
+
+
+
+
+  <script src="pricing-engine.js" defer></script>
 </body>
 </html>
