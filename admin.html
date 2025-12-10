@@ -2,52 +2,62 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Admin – TPO Go XLS Upload</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin – Mortgage Pricing Hub</title>
   <link rel="stylesheet" href="styles.css" />
+  <!-- Full XLSX library, supports .xls AND .xlsx -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-  <header class="top-bar">
-    <div class="logo">Admin – Mortgage Pricing Hub</div>
-    <nav class="top-actions">
-      <a href="index.html" class="btn btn-outline">Back to Pricing</a>
-    </nav>
-  </header>
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <h1>Admin – Mortgage Pricing Hub</h1>
+        <p class="subtitle">
+          Upload the daily TPO Go rate sheet. Parsing runs entirely in your browser. The public pricing
+          page will only see the final note rate &amp; monthly P&amp;I.
+        </p>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html" class="pill-link">Back to Pricing</a>
+      </nav>
+    </header>
 
-  <main class="admin-page">
-    <section class="card upload-panel">
-      <h2>Upload Daily TPO Go Rate Sheet</h2>
-      <p class="muted small">
-        Upload the original <strong>.xls</strong> or <strong>.xlsx</strong> TPO Go rate sheet.
-        Parsing runs entirely in your browser. The front-end pricing page will use the
-        most recently uploaded sheet stored in this browser.
-      </p>
+    <main class="app-main" style="grid-template-columns: minmax(0, 1fr);">
+      <section class="card">
+        <h2>Upload Daily TPO Go Rate Sheet</h2>
 
-      <div class="upload-box">
-        <label for="rateSheetInput" class="field-group">
-          <span><strong>Rate Sheet File (.xls / .xlsx)</strong></span>
-          <input type="file" id="rateSheetInput" accept=".xls,.xlsx" />
-        </label>
-
-        <p class="muted small" style="margin-top:8px;">
-          For now, this admin parses the <strong>Conforming 30 Year Fixed</strong> section using the
-          <strong>30-Day</strong> column as the base grid.
-          Other programs can reuse this grid until we wire their specific sections.
+        <p style="font-size:13px; color:#4b5563; margin-top:0;">
+          Upload the original <strong>.xls</strong> or <strong>.xlsx</strong> TPO Go rate sheet you
+          receive. Please upload the native Excel file from TPO Go, not a PDF export.
         </p>
 
-        <div id="uploadStatus" class="upload-status">
-          No file loaded yet.
+        <div class="field-grid" style="grid-template-columns: minmax(0, 1fr);">
+          <div class="field">
+            <label for="rateFile">Rate Sheet File (.xls / .xlsx)</label>
+            <input type="file" id="rateFile" accept=".xls,.xlsx" />
+          </div>
         </div>
-      </div>
 
-      <p class="muted small" style="margin-top:12px;">
-        Tip: Make sure you upload the original Excel file exported from TPO Go, not a PDF.
-      </p>
-    </section>
-  </main>
+        <div class="actions-row" style="margin-top:16px;">
+          <button id="loadPricing" class="btn-primary">Load Pricing</button>
+          <span class="hint">
+            For now, the engine parses the <strong>Conforming 30 Year Fixed</strong> section using the
+            <strong> 30-Day</strong> column as the base grid.
+          </span>
+        </div>
 
-  <!-- SheetJS – reads .xls and .xlsx in the browser -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+        <div id="adminStatus" class="result-notice" style="margin-top:16px;">
+          No rate sheet loaded yet.
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <span>Public borrowers never see this page. It only controls the internal pricing model in your browser.</span>
+    </footer>
+  </div>
+
   <script src="upload.js"></script>
 </body>
 </html>
