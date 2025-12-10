@@ -2,566 +2,814 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Pricing Engine</title>
+  <title>Mortgage Pricing Hub</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <!-- Basic styling similar to your screenshot -->
+  <!-- Tailwind via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS for Excel parsing in the browser -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
   <style>
-    * {
-      box-sizing: border-box;
-    }
     body {
-      margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f4f5fb;
-      color: #111827;
-    }
-    header {
-      background: #1f2937;
-      color: #fff;
-      padding: 16px 24px;
-    }
-    header h1 {
-      margin: 0;
-      font-size: 20px;
-    }
-    header p {
-      margin: 4px 0 0;
-      font-size: 13px;
-      opacity: 0.8;
-    }
-    main {
-      max-width: 1200px;
-      margin: 24px auto 40px;
-      padding: 0 16px;
-    }
-    .cards-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
+      background: #f3f4f6;
     }
     .card {
-      flex: 1 1 320px;
-      background: #ffffff;
-      border-radius: 10px;
-      padding: 16px 18px;
-      box-shadow: 0 3px 8px rgba(15, 23, 42, 0.08);
-      min-width: 280px;
+      background: white;
+      border-radius: 1rem;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+      padding: 1.5rem;
     }
-    .card h2 {
-      margin: 0 0 12px;
-      font-size: 16px;
-      color: #1d4ed8;
-    }
-    label {
+    .label {
+      font-size: 0.85rem;
+      color: #4b5563;
+      font-weight: 500;
+      margin-bottom: 0.1rem;
       display: block;
-      font-size: 13px;
-      margin-bottom: 4px;
-      color: #374151;
     }
-    .field {
-      margin-bottom: 10px;
-    }
-    input[type="number"],
-    input[type="text"],
-    select {
-      width: 100%;
-      padding: 7px 9px;
-      border-radius: 6px;
+    .input, select {
+      border-radius: 0.75rem;
       border: 1px solid #d1d5db;
-      font-size: 14px;
+      padding: 0.4rem 0.75rem;
+      width: 100%;
+      font-size: 0.9rem;
     }
-    input:focus,
-    select:focus {
+    .input:focus, select:focus {
       outline: none;
       border-color: #2563eb;
-      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.25);
+      box-shadow: 0 0 0 1px #2563eb22;
     }
-    .input-prefix {
-      display: flex;
-      align-items: center;
-      border-radius: 6px;
-      border: 1px solid #d1d5db;
-      overflow: hidden;
-    }
-    .input-prefix span {
-      padding: 7px 10px;
-      background: #f3f4f6;
-      border-right: 1px solid #e5e7eb;
-      font-size: 13px;
-      color: #6b7280;
-    }
-    .input-prefix input {
-      border: none;
-      flex: 1;
-      padding-left: 8px;
-    }
-    .actions-row {
-      margin-top: 20px;
-      display: flex;
-      justify-content: flex-end;
-    }
-    .btn-primary {
-      border: none;
+    .primary-btn {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
       border-radius: 999px;
-      background: #2563eb;
-      color: #fff;
-      padding: 10px 24px;
-      font-size: 15px;
-      cursor: pointer;
-    }
-    .btn-primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .results-card {
-      margin-top: 20px;
-      padding: 16px 18px;
-      border-radius: 10px;
-      background: #ffffff;
-      box-shadow: 0 3px 8px rgba(15, 23, 42, 0.08);
-    }
-    .results-title {
-      font-size: 16px;
-      margin: 0 0 8px;
-      color: #111827;
-    }
-    .results-value {
-      font-size: 18px;
+      padding: 0.6rem 1.5rem;
       font-weight: 600;
-      margin: 4px 0;
+      font-size: 0.95rem;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
     }
-    .muted {
-      font-size: 12px;
-      color: #6b7280;
+    .primary-btn:hover {
+      filter: brightness(1.05);
     }
-    .error {
-      margin-top: 8px;
-      padding: 8px 10px;
-      border-radius: 8px;
-      background: #fee2e2;
-      border: 1px solid #f87171;
-      font-size: 13px;
-      color: #991b1b;
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 0.15rem 0.6rem;
+      font-size: 0.7rem;
+      font-weight: 500;
     }
-    /* Admin (backend) panel – hidden unless ?admin=1 */
-    #adminPanel {
-      display: none;
-      margin-bottom: 16px;
-      padding: 14px 16px;
-      border-radius: 10px;
-      background: #eef2ff;
-      border: 1px dashed #4f46e5;
-      font-size: 13px;
+    .badge-blue {
+      background: #e0ebff;
+      color: #1d4ed8;
     }
-    #adminPanel h3 {
-      margin-top: 0;
-      font-size: 14px;
-      color: #111827;
-    }
-    #adminPanel small {
-      color: #4b5563;
-    }
-    #fileStatus {
-      margin-top: 4px;
-    }
-    @media (max-width: 800px) {
-      .cards-row {
-        flex-direction: column;
-      }
-      .actions-row {
-        justify-content: center;
-      }
+    .badge-green {
+      background: #dcfce7;
+      color: #166534;
     }
   </style>
-
-  <!-- SheetJS to read xls/xlsx client-side (admin only) -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
-<body>
-<header>
-  <h1>Scenario Pricing</h1>
-  <p>Enter borrower & property info to see the best rate and monthly payment (P&I).</p>
-</header>
+<body class="min-h-screen">
+  <div class="max-w-6xl mx-auto px-4 py-6">
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold text-slate-900">Mortgage Pricing Hub</h1>
+        <p class="text-sm text-slate-600 mt-1">
+          Simple, user-friendly pricing: only rate &amp; monthly payment shown to the front end.
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <span class="badge badge-blue">Conventional / HP / HR / HB</span>
+        <span class="badge badge-green">Admin XLS Upload</span>
+      </div>
+    </header>
 
-<main>
-  <!-- Admin / backend upload – only visible on ?admin=1 -->
-  <div id="adminPanel">
-    <h3>Admin: Upload Rate Sheet(s)</h3>
-    <small>
-      This panel is only visible when you open the page with <code>?admin=1</code> in the URL.<br />
-      Example: <code>https://nuchy123.github.io/pricing-engine/?admin=1</code>
-    </small>
-    <div style="margin-top:8px;">
-      <input id="rateFiles" type="file" multiple accept=".xls,.xlsx,.csv" />
-      <div id="fileStatus" class="muted">No lender data loaded.</div>
-    </div>
-  </div>
+    <!-- Admin panel (only ?admin=1) -->
+    <section id="admin-panel" class="mb-6 hidden">
+      <div class="card border border-dashed border-blue-200 bg-blue-50/40">
+        <div class="flex items-start gap-3">
+          <div class="mt-1 text-blue-600">⚙️</div>
+          <div class="flex-1">
+            <h2 class="text-lg font-semibold text-slate-900 mb-1">
+              Admin – Upload Daily TPO Go Rate Sheet
+            </h2>
+            <p class="text-xs text-slate-600 mb-3">
+              Upload the original <strong>.xls</strong> / <strong>.xlsx</strong> TPO Go rate sheet.
+              Parsing runs in your browser only. Front-end users never see this panel.
+            </p>
 
-  <!-- Form cards -->
-  <div class="cards-row">
-    <!-- Loan Info -->
-    <div class="card">
-      <h2>Loan Info</h2>
+            <div class="flex flex-col md:flex-row gap-3 items-start md:items-center">
+              <div class="flex-1 min-w-[220px]">
+                <label class="label">Rate Sheet (.xls / .xlsx)</label>
+                <input id="rateSheetFile" type="file" accept=".xls,.xlsx" class="input bg-white" />
+              </div>
+              <button id="parseSheetBtn" class="primary-btn mt-2 md:mt-6">
+                <span>Load Pricing</span>
+              </button>
+            </div>
 
-      <div class="field">
-        <label for="purchasePrice">Purchase Price</label>
-        <div class="input-prefix">
-          <span>$</span>
-          <input id="purchasePrice" type="number" step="0.01" placeholder="1060000.00" />
+            <p id="adminStatus" class="text-xs mt-3 text-slate-600"></p>
+
+            <p class="text-[0.7rem] mt-3 text-slate-500">
+              CURRENT DEMO: Extracts Conforming 30-Year Fixed (30-day column) from the
+              "CONVENTIONAL PRICING" grid and stores it as the base grid. Other programs reuse this
+              grid until their own sections are wired. Broker comp <strong>+2.50%</strong> is always
+              added internally. LLPA &amp; payup logic are stubs in
+              <code>getLlpaAdjustment()</code> and <code>getPayupAdjustment()</code>.
+            </p>
+          </div>
         </div>
       </div>
+    </section>
 
-      <div class="field">
-        <label for="loanAmount">Loan Amount</label>
-        <div class="input-prefix">
-          <span>$</span>
-          <input id="loanAmount" type="number" step="0.01" placeholder="760000.00" />
+    <!-- Main layout -->
+    <div class="grid md:grid-cols-5 gap-5">
+      <!-- Input form -->
+      <section class="md:col-span-2">
+        <div class="card">
+          <h2 class="text-lg font-semibold text-slate-900 mb-2">Scenario Details</h2>
+          <p class="text-xs text-slate-500 mb-4">
+            Fill in the basic loan scenario. LTV and location are calculated automatically to keep it simple
+            for Realtors and borrowers.
+          </p>
+
+          <form id="pricingForm" class="space-y-4">
+            <!-- Program & Lock -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="label" for="program">Program</label>
+                <select id="program">
+                  <option value="conv30">Conforming 30 Year Fixed</option>
+                  <option value="conv20">Conforming 20 Year Fixed</option>
+                  <option value="conv15">Conforming 15 Year Fixed</option>
+                  <option value="conv10">Conforming 10 Year Fixed</option>
+                  <option value="hp30">Home Possible 30 Year</option>
+                  <option value="hp20">Home Possible 20 Year</option>
+                  <option value="hr30">HomeReady 30 Year</option>
+                  <option value="hr15">HomeReady 15 Year</option>
+                  <option value="hb30">High Balance 30 Year</option>
+                  <option value="hb15">High Balance 15 Year</option>
+                  <option value="homestyle">HomeStyle 30 Year (DU Only)</option>
+                </select>
+              </div>
+              <div>
+                <label class="label" for="lockTerm">Lock Term</label>
+                <select id="lockTerm">
+                  <option value="30">30 Days</option>
+                  <option value="15">15 Days</option>
+                  <option value="45">45 Days</option>
+                  <option value="60">60 Days</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Occupancy & Property Type -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="label" for="occupancy">Occupancy</label>
+                <select id="occupancy">
+                  <option value="primary">Primary Residence</option>
+                  <option value="second">Second Home</option>
+                  <option value="investment">Investment Property</option>
+                </select>
+              </div>
+              <div>
+                <label class="label" for="propertyType">Property Type</label>
+                <select id="propertyType">
+                  <option value="sfr">Single Family / PUD</option>
+                  <option value="2-4">2–4 Unit</option>
+                  <option value="condo">Condo</option>
+                  <option value="manufactured">Manufactured</option>
+                  <option value="coop">Co-op</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- FICO & Purpose -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="label" for="fico">FICO</label>
+                <select id="fico">
+                  <option value="780">780+</option>
+                  <option value="760">760–779</option>
+                  <option value="740">740–759</option>
+                  <option value="720">720–739</option>
+                  <option value="700">700–719</option>
+                  <option value="680">680–699</option>
+                  <option value="660">660–679</option>
+                  <option value="640">640–659</option>
+                  <option value="620">620–639</option>
+                  <option value="600">&lt;620</option>
+                </select>
+              </div>
+              <div>
+                <label class="label" for="purpose">Loan Purpose</label>
+                <select id="purpose">
+                  <option value="purchase">Purchase</option>
+                  <option value="rt">Rate / Term Refinance</option>
+                  <option value="cashout">Cash-Out Refinance</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- ZIP & Location -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="label" for="zip">ZIP Code</label>
+                <input id="zip" class="input" type="text" maxlength="5" placeholder="e.g. 11230" />
+              </div>
+              <div>
+                <label class="label">Location (auto)</label>
+                <div class="text-xs text-slate-700">
+                  <span id="cityDisplay">–</span>,
+                  <span id="stateDisplay">–</span>
+                  <span class="text-slate-500">(County: <span id="countyDisplay">–</span>)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Purchase Price / Loan Amount / LTV -->
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label class="label" for="purchasePrice">Purchase Price</label>
+                <input id="purchasePrice" class="input" type="number" min="0" step="1000" placeholder="e.g. 700000" />
+              </div>
+              <div>
+                <label class="label" for="loanAmount">Loan Amount</label>
+                <input id="loanAmount" class="input" type="number" min="0" step="1000"
+                       placeholder="Enter or auto-calc" />
+              </div>
+              <div>
+                <label class="label" for="ltv">LTV (%)</label>
+                <input id="ltv" class="input" type="number" min="0" max="200" step="0.01"
+                       placeholder="Enter or auto-calc" />
+              </div>
+            </div>
+
+            <p class="text-[0.7rem] text-slate-500">
+              Either enter <strong>Purchase Price + Loan Amount</strong> and LTV will auto-fill, or
+              <strong>Purchase Price + LTV</strong> and Loan Amount will auto-fill.
+            </p>
+
+            <div class="pt-3">
+              <button type="submit" class="primary-btn">
+                <span>Get Pricing</span> <span>➜</span>
+              </button>
+            </div>
+          </form>
         </div>
-      </div>
+      </section>
 
-      <div class="field">
-        <label for="ltv">LTV (%)</label>
-        <input id="ltv" type="number" step="0.01" placeholder="Auto" readonly />
-        <div class="muted">Calculated automatically from Purchase Price and Loan Amount.</div>
-      </div>
+      <!-- Results -->
+      <section class="md:col-span-3">
+        <div class="card h-full flex flex-col">
+          <h2 class="text-lg font-semibold text-slate-900 mb-2">Pricing Result</h2>
+          <p class="text-xs text-slate-500 mb-4">
+            We only show the <strong>note rate</strong> and <strong>principal &amp; interest payment</strong>.
+            All price, LLPA, incentives, and broker compensation are applied internally and never shown to users.
+          </p>
 
-      <div class="field">
-        <label for="lockDays">Lock Period</label>
-        <select id="lockDays">
-          <option value="">Select</option>
-          <option value="15">15 Days</option>
-          <option value="30" selected>30 Days</option>
-          <option value="45">45 Days</option>
-          <option value="60">60 Days</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Property Info -->
-    <div class="card">
-      <h2>Property Info</h2>
-
-      <div class="field">
-        <label for="state">State</label>
-        <select id="state">
-          <option value="">Select</option>
-          <option value="NY">New York</option>
-          <option value="NJ">New Jersey</option>
-          <option value="FL">Florida</option>
-          <option value="CT">Connecticut</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label for="county">County (optional)</label>
-        <input id="county" type="text" placeholder="Rockland County (Monsey)" />
-      </div>
-
-      <div class="field">
-        <label for="occupancy">Occupancy</label>
-        <select id="occupancy">
-          <option value="">Select</option>
-          <option value="Primary">Primary Residence</option>
-          <option value="Second Home">Second Home</option>
-          <option value="Investment">Investment</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label for="propertyType">Legal Structure</label>
-        <select id="propertyType">
-          <option value="">Select</option>
-          <option value="SFR">Single Family</option>
-          <option value="Condo">Condo</option>
-          <option value="2-4 Unit">2–4 Unit</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Borrower Info -->
-    <div class="card">
-      <h2>Borrower Info</h2>
-
-      <div class="field">
-        <label for="fico">FICO Score</label>
-        <input id="fico" type="number" placeholder="750" />
-      </div>
-
-      <div class="field">
-        <label for="firstTime">First Time Homebuyer?</label>
-        <select id="firstTime">
-          <option value="No" selected>No</option>
-          <option value="Yes">Yes</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label for="income">Borrower's Annual Income</label>
-        <select id="income">
-          <option value="">Not used for pricing</option>
-          <option>Below $99,760</option>
-          <option>Between $99,760 and $149,640</option>
-          <option>Above $149,640</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label for="escrowWaived">Escrow Waived</label>
-        <select id="escrowWaived">
-          <option value="No" selected>No</option>
-          <option value="Yes">Yes</option>
-        </select>
-      </div>
+          <div id="resultArea"
+               class="flex-1 flex flex-col items-center justify-center text-center text-slate-500">
+            <p class="text-sm mb-1">No scenario calculated yet.</p>
+            <p class="text-xs">Fill in the form and click <strong>Get Pricing</strong>.</p>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 
-  <!-- Submit -->
-  <div class="actions-row">
-    <button id="runPricing" class="btn-primary">Submit</button>
-  </div>
+  <script>
+    /***********************************************************************
+     * GLOBAL STATE
+     **********************************************************************/
+    let conventionalBaseGrid = []; // parsed Conforming 30Y grid (30-day column)
+    const pricingGrids = {};       // per-program grids (extend later)
+    const BROKER_COMP_PERCENT = 2.5; // 2.50% broker compensation added to all programs
 
-  <div id="scenarioError"></div>
-
-  <!-- Results -->
-  <div id="results" class="results-card" style="display:none;">
-    <p class="results-title">Best Scenario</p>
-    <p class="results-value" id="resultRate">Rate: —</p>
-    <p class="results-value" id="resultPayment">Monthly Payment (P&amp;I): —</p>
-    <p class="muted" id="resultDetails"></p>
-  </div>
-</main>
-
-<script>
-  /********************************************************************
-   * 1. Admin panel visibility (backend upload but hidden for users)
-   *    Only shown when URL includes ?admin=1
-   ********************************************************************/
-  const isAdmin = window.location.search.includes("admin=1");
-  const adminPanel = document.getElementById("adminPanel");
-  const rateFilesInput = document.getElementById("rateFiles");
-  const fileStatus = document.getElementById("fileStatus");
-
-  if (isAdmin) {
-    adminPanel.style.display = "block";
-  }
-
-  /********************************************************************
-   * 2. Column mapping – UPDATE to match your Excel headers
-   ********************************************************************/
-  const columnMapping = {
-    lenderName: "Lender",        // optional
-    productName: "Product",
-    rate: "Rate",
-    price: "Price",
-    minFico: "MinFICO",
-    maxFico: "MaxFICO",
-    minLTV: "MinLTV",
-    maxLTV: "MaxLTV",
-    minLoan: "MinLoan",
-    maxLoan: "MaxLoan",
-    purpose: "Purpose",
-    occupancy: "Occupancy",
-    propertyType: "PropType",
-    term: "Term",          // years
-    lockDays: "LockDays",
-    state: "State"
-  };
-
-  /********************************************************************
-   * 3. Data model: lenders[ { name, products: [rows] } ]
-   ********************************************************************/
-  let lenders = [];
-
-  if (isAdmin && rateFilesInput) {
-    rateFilesInput.addEventListener("change", handleFiles);
-  }
-
-  function handleFiles(event) {
-    const files = Array.from(event.target.files || []);
-    lenders = [];
-    fileStatus.textContent = "Loading files…";
-
-    if (!files.length) {
-      fileStatus.textContent = "No lender data loaded.";
-      return;
+    /***********************************************************************
+     * ADMIN TOGGLE
+     **********************************************************************/
+    function isAdminMode() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("admin") === "1";
     }
 
-    let remaining = files.length;
+    document.addEventListener("DOMContentLoaded", () => {
+      if (isAdminMode()) {
+        document.getElementById("admin-panel").classList.remove("hidden");
+      }
+      setupAdminUpload();
+      setupZipAutoLookup();
+      setupLtvAutoCalc();
+      setupPricingForm();
+    });
 
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = e => {
-        try {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: "array" });
-          const firstSheetName = workbook.SheetNames[0];
-          const ws = workbook.Sheets[firstSheetName];
-          const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+    /***********************************************************************
+     * ADMIN: UPLOAD & PARSE TPO SHEET
+     **********************************************************************/
+    function setupAdminUpload() {
+      const fileInput = document.getElementById("rateSheetFile");
+      const btn = document.getElementById("parseSheetBtn");
+      const statusEl = document.getElementById("adminStatus");
+      if (!fileInput || !btn) return;
 
-          lenders.push({
-            name: file.name.replace(/\.[^.]+$/, ""),
-            products: rows
-          });
-        } catch (err) {
-          console.error("Error parsing", file.name, err);
-        } finally {
-          remaining--;
-          if (remaining === 0) {
-            fileStatus.textContent = `Loaded ${lenders.length} lender file(s) for this session.`;
-          }
+      btn.addEventListener("click", () => {
+        if (!fileInput.files || fileInput.files.length === 0) {
+          statusEl.textContent = "Please choose a .xls or .xlsx file first.";
+          statusEl.className = "text-xs mt-3 text-red-600";
+          return;
         }
-      };
-      reader.readAsArrayBuffer(file);
-    });
-  }
 
-  /********************************************************************
-   * 4. Helpers
-   ********************************************************************/
-  function getNumber(row, key) {
-    const raw = row[key];
-    if (raw === undefined || raw === null || raw === "") return null;
-    const v = Number(String(raw).replace(/[^0-9.\-]/g, ""));
-    return isNaN(v) ? null : v;
-  }
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: "array" });
 
-  function normalizeString(value) {
-    if (!value && value !== 0) return "";
-    return String(value).trim().toLowerCase();
-  }
+            conventionalBaseGrid = extractConventional30Grid(workbook);
+            pricingGrids["conv30"] = conventionalBaseGrid; // for now, others reuse this
 
-  function calculateMonthlyPayment(loanAmount, annualRate, years) {
-    if (!loanAmount || !annualRate || !years) return null;
-    const r = annualRate / 100 / 12;
-    const n = years * 12;
-    const payment = loanAmount * (r / (1 - Math.pow(1 + r, -n)));
-    return payment;
-  }
-
-  /********************************************************************
-   * 5. LTV auto calculation
-   ********************************************************************/
-  const purchasePriceInput = document.getElementById("purchasePrice");
-  const loanAmountInput   = document.getElementById("loanAmount");
-  const ltvInput          = document.getElementById("ltv");
-
-  function updateLTV() {
-    const price = Number(purchasePriceInput.value);
-    const loan  = Number(loanAmountInput.value);
-    if (price && loan) {
-      const ltv = (loan / price) * 100;
-      ltvInput.value = ltv.toFixed(2);
-    } else {
-      ltvInput.value = "";
-    }
-  }
-
-  purchasePriceInput.addEventListener("input", updateLTV);
-  loanAmountInput.addEventListener("input", updateLTV);
-
-  /********************************************************************
-   * 6. Scenario run
-   ********************************************************************/
-  const runPricingBtn = document.getElementById("runPricing");
-  const scenarioError = document.getElementById("scenarioError");
-  const resultsCard   = document.getElementById("results");
-  const resultRateEl  = document.getElementById("resultRate");
-  const resultPayEl   = document.getElementById("resultPayment");
-  const resultDetails = document.getElementById("resultDetails");
-
-  runPricingBtn.addEventListener("click", runScenario);
-
-  function runScenario() {
-    scenarioError.innerHTML = "";
-    resultsCard.style.display = "none";
-
-    const loanAmount   = Number(loanAmountInput.value);
-    const purchasePrice= Number(purchasePriceInput.value);
-    const fico         = Number(document.getElementById("fico").value);
-    const state        = normalizeString(document.getElementById("state").value);
-    const occupancy    = normalizeString(document.getElementById("occupancy").value);
-    const propertyType = normalizeString(document.getElementById("propertyType").value);
-    const lockDays     = Number(document.getElementById("lockDays").value || 0);
-
-    if (!loanAmount || !purchasePrice || !fico) {
-      scenarioError.innerHTML = '<div class="error">Please enter at least Purchase Price, Loan Amount and FICO.</div>';
-      return;
-    }
-
-    const ltv = (loanAmount / purchasePrice) * 100;
-
-    if (!lenders.length) {
-      scenarioError.innerHTML = '<div class="error">No rate sheets loaded. (Open this page with <code>?admin=1</code> and upload your rate sheet.)</div>';
-      return;
-    }
-
-    let matches = [];
-
-    lenders.forEach(lender => {
-      lender.products.forEach(row => {
-        const map = columnMapping;
-
-        const rate     = getNumber(row, map.rate);
-        const price    = getNumber(row, map.price);
-        if (rate === null || price === null) return;
-
-        const rowMinFico = getNumber(row, map.minFico);
-        const rowMaxFico = getNumber(row, map.maxFico);
-        const rowMinLTV  = getNumber(row, map.minLTV);
-        const rowMaxLTV  = getNumber(row, map.maxLTV);
-        const rowMinLoan = getNumber(row, map.minLoan);
-        const rowMaxLoan = getNumber(row, map.maxLoan);
-        const rowTerm    = getNumber(row, map.term) || 30; // default 30 yrs
-        const rowLock    = getNumber(row, map.lockDays);
-
-        const rowOccupancy    = normalizeString(row[map.occupancy]);
-        const rowPropType     = normalizeString(row[map.propertyType]);
-        const rowState        = normalizeString(row[map.state]);
-
-        // Numeric filters
-        if (rowMinFico !== null && fico < rowMinFico) return;
-        if (rowMaxFico !== null && fico > rowMaxFico) return;
-        if (rowMinLTV !== null && ltv  < rowMinLTV)  return;
-        if (rowMaxLTV !== null && ltv  > rowMaxLTV)  return;
-        if (rowMinLoan!== null && loanAmount < rowMinLoan) return;
-        if (rowMaxLoan!== null && loanAmount > rowMaxLoan) return;
-        if (lockDays && rowLock !== null && rowLock !== lockDays) return;
-
-        // Text filters
-        if (occupancy && rowOccupancy && rowOccupancy !== occupancy) return;
-        if (propertyType && rowPropType && rowPropType !== propertyType) return;
-        if (state && rowState && rowState !== state) return;
-
-        matches.push({
-          rate,
-          price,
-          term: rowTerm
-        });
+            if (conventionalBaseGrid.length === 0) {
+              statusEl.textContent =
+                "Loaded sheet, but could not find CONVENTIONAL 30YR grid. Parser may need tuning.";
+              statusEl.className = "text-xs mt-3 text-red-600";
+            } else {
+              statusEl.textContent =
+                `Loaded Conforming 30Y pricing (30-day) from ${file.name} – ${conventionalBaseGrid.length} rows captured.`;
+              statusEl.className = "text-xs mt-3 text-green-700";
+            }
+          } catch (err) {
+            console.error(err);
+            statusEl.textContent = "Error reading workbook. Check format or try another file.";
+            statusEl.className = "text-xs mt-3 text-red-600";
+          }
+        };
+        reader.readAsArrayBuffer(file);
       });
-    });
-
-    if (!matches.length) {
-      scenarioError.innerHTML = '<div class="error">No matching rows found for this scenario. Check your column mapping and filters.</div>';
-      return;
     }
 
-    // Choose best option by highest price (you can change logic later)
-    matches.sort((a, b) => b.price - a.price);
-    const best = matches[0];
+    /**
+     * Parse Conforming 30-Year Fixed 30-day price grid.
+     * This is a best-effort parser tuned to the "CONVENTIONAL PRICING" layout.
+     */
+    function extractConventional30Grid(workbook) {
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
 
-    const payment = calculateMonthlyPayment(loanAmount, best.rate, best.term);
+      let conventionalRowIndex = -1;
+      for (let i = 0; i < rows.length; i++) {
+        const rowStr = rows[i].join(" ").toUpperCase();
+        if (rowStr.includes("CONVENTIONAL PRICING")) {
+          conventionalRowIndex = i;
+          break;
+        }
+      }
+      if (conventionalRowIndex === -1) return [];
 
-    resultRateEl.textContent    = `Rate: ${best.rate.toFixed(3)}%`;
-    resultPayEl.textContent     = payment
-      ? `Monthly Payment (P&I): $${payment.toFixed(2)}`
-      : `Monthly Payment (P&I): —`;
+      // look for header with "Rate" + "15-Day" + "30-Day"
+      let headerRowIndex = -1;
+      let rateCol = -1;
+      let col30 = -1;
+      for (let i = conventionalRowIndex; i < rows.length; i++) {
+        const row = rows[i].map(c => String(c).trim());
+        const upper = row.map(c => c.toUpperCase());
+        if (upper.includes("RATE") && upper.some(c => c.includes("15")) && upper.some(c => c.includes("30"))) {
+          headerRowIndex = i;
+          rateCol = upper.indexOf("RATE");
+          col30 = upper.findIndex(c => c.includes("30"));
+          break;
+        }
+      }
+      if (headerRowIndex === -1 || rateCol === -1 || col30 === -1) return [];
 
-    resultDetails.textContent   =
-      `Based on loan amount $${loanAmount.toLocaleString()} at ${best.rate.toFixed(3)}% for ${best.term} years.`;
+      const grid = [];
+      for (let i = headerRowIndex + 1; i < rows.length; i++) {
+        const row = rows[i];
+        const rawRate = row[rateCol];
+        if (!rawRate || String(rawRate).trim() === "") break;
 
-    resultsCard.style.display = "block";
-  }
-</script>
+        const rate = parseFloat(String(rawRate).replace(/[^\d.]/g, ""));
+        const price30 = parseFloat(String(row[col30]).replace(/[^\d.-]/g, ""));
+        if (isNaN(rate) || isNaN(price30)) continue;
+        grid.push({ rate, price30 });
+      }
+      return grid;
+    }
+
+    /***********************************************************************
+     * ZIP → CITY / STATE (zone stub)
+     **********************************************************************/
+    function setupZipAutoLookup() {
+      const zipInput = document.getElementById("zip");
+      const cityEl = document.getElementById("cityDisplay");
+      const stateEl = document.getElementById("stateDisplay");
+      const countyEl = document.getElementById("countyDisplay");
+      if (!zipInput) return;
+
+      let zipTimeout = null;
+      zipInput.addEventListener("input", () => {
+        const zip = zipInput.value.trim();
+        if (!/^\d{5}$/.test(zip)) {
+          cityEl.textContent = "–";
+          stateEl.textContent = "–";
+          countyEl.textContent = "–";
+          return;
+        }
+        if (zipTimeout) clearTimeout(zipTimeout);
+        zipTimeout = setTimeout(() => {
+          fetch(`https://api.zippopotam.us/us/${zip}`)
+            .then(res => {
+              if (!res.ok) throw new Error("ZIP not found");
+              return res.json();
+            })
+            .then(data => {
+              const place = data.places && data.places[0];
+              const city = place ? place["place name"] : "";
+              const stateAbbr = place ? place["state abbreviation"] : "";
+              cityEl.textContent = city || "Unknown city";
+              stateEl.textContent = stateAbbr || "Unknown state";
+              countyEl.textContent = "N/A";
+              window.currentPricingZone = getZoneForStateAndZip(stateAbbr, zip);
+            })
+            .catch(() => {
+              cityEl.textContent = "–";
+              stateEl.textContent = "–";
+              countyEl.textContent = "–";
+              window.currentPricingZone = 0;
+            });
+        }, 350);
+      });
+    }
+
+    // Stub: update later to match your LLPA zone mapping.
+    function getZoneForStateAndZip(stateAbbr, zip) {
+      const zoneByState = {
+        "NY": 1,
+        "NJ": 2,
+        "CT": 3,
+        "FL": 4,
+        "CA": 5
+      };
+      return zoneByState[stateAbbr] || 0;
+    }
+
+    /***********************************************************************
+     * LTV AUTO CALC
+     **********************************************************************/
+    function setupLtvAutoCalc() {
+      const pp = document.getElementById("purchasePrice");
+      const la = document.getElementById("loanAmount");
+      const ltv = document.getElementById("ltv");
+      if (!pp || !la || !ltv) return;
+
+      function recalcFromLoanAmount() {
+        const purchase = parseFloat(pp.value);
+        const loan = parseFloat(la.value);
+        if (purchase > 0 && loan > 0) {
+          const ratio = (loan / purchase) * 100;
+          ltv.value = ratio.toFixed(2);
+        }
+      }
+      function recalcFromLtv() {
+        const purchase = parseFloat(pp.value);
+        const ltvPct = parseFloat(ltv.value);
+        if (purchase > 0 && ltvPct > 0) {
+          const loan = purchase * (ltvPct / 100);
+          la.value = Math.round(loan / 100) * 100;
+        }
+      }
+
+      pp.addEventListener("input", () => {
+        if (la.value) recalcFromLoanAmount();
+        else if (ltv.value) recalcFromLtv();
+      });
+      la.addEventListener("input", recalcFromLoanAmount);
+      ltv.addEventListener("input", recalcFromLtv);
+    }
+
+    /***********************************************************************
+     * PRICING ENGINE
+     **********************************************************************/
+    function setupPricingForm() {
+      const form = document.getElementById("pricingForm");
+      const resultArea = document.getElementById("resultArea");
+      if (!form || !resultArea) return;
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        const program = document.getElementById("program").value;
+        const lockTerm = document.getElementById("lockTerm").value;
+        const occupancy = document.getElementById("occupancy").value;
+        const propertyType = document.getElementById("propertyType").value;
+        const fico = parseInt(document.getElementById("fico").value, 10);
+        const purpose = document.getElementById("purpose").value;
+        const zip = document.getElementById("zip").value.trim();
+        const purchasePrice = parseFloat(document.getElementById("purchasePrice").value);
+        const loanAmount = parseFloat(document.getElementById("loanAmount").value);
+        const ltv = parseFloat(document.getElementById("ltv").value);
+        const city = document.getElementById("cityDisplay").textContent;
+        const stateAbbr = document.getElementById("stateDisplay").textContent;
+
+        if (!loanAmount || loanAmount <= 0 || !purchasePrice || purchasePrice <= 0) {
+          resultArea.innerHTML =
+            `<p class="text-sm text-red-600">Please enter a valid Purchase Price and Loan Amount (or LTV).</p>`;
+          return;
+        }
+
+        if (!conventionalBaseGrid || conventionalBaseGrid.length === 0) {
+          resultArea.innerHTML =
+            `<p class="text-sm text-red-600">No pricing grid loaded. Go to <strong>?admin=1</strong> and upload the daily rate sheet.</p>`;
+          return;
+        }
+
+        // Choose base grid for this program.
+        let baseRows = pricingGrids[program];
+        if (!baseRows || baseRows.length === 0) {
+          // Fallback for now: reuse conv30 grid
+          baseRows = conventionalBaseGrid;
+        }
+
+        const zone = window.currentPricingZone || 0;
+        const isHomeStyle = (program === "homestyle");
+
+        let quotes = [];
+
+        if (isHomeStyle) {
+          // HomeStyle is DU-only
+          const duQuote = buildQuoteFromGrid({
+            label: "Fannie Mae DU Eligible",
+            program,
+            baseRows,
+            loanAmount,
+            ltv,
+            fico,
+            occupancy,
+            propertyType,
+            purpose,
+            stateAbbr,
+            zone,
+            payupFlavor: "DU"
+          });
+          if (!duQuote) {
+            resultArea.innerHTML =
+              `<p class="text-sm text-red-600">No DU pricing available for this HomeStyle scenario.</p>`;
+            return;
+          }
+          resultArea.innerHTML = renderSingleCardHtml(duQuote);
+          return;
+        }
+
+        // For ALL other programs, show LP + DU side-by-side (universal dual display).
+        const lpQuote = buildQuoteFromGrid({
+          label: "Fannie Mae LP Eligible",
+          program,
+          baseRows,
+          loanAmount,
+          ltv,
+          fico,
+          occupancy,
+          propertyType,
+          purpose,
+          stateAbbr,
+          zone,
+          payupFlavor: "LP"
+        });
+        const duQuote = buildQuoteFromGrid({
+          label: "Fannie Mae DU Eligible",
+          program,
+          baseRows,
+          loanAmount,
+          ltv,
+          fico,
+          occupancy,
+          propertyType,
+          purpose,
+          stateAbbr,
+          zone,
+          payupFlavor: "DU"
+        });
+
+        // A: always show two cards, even if one side can't price
+        if (!lpQuote && !duQuote) {
+          resultArea.innerHTML =
+            `<p class="text-sm text-red-600">No executable pricing found for this scenario.</p>`;
+          return;
+        }
+        resultArea.innerHTML = renderDualCardsHtml(lpQuote, duQuote);
+      });
+    }
+
+    /**
+     * Build one quote:
+     * - Choose a base rate row
+     * - Add LLPA, payups (except HB), +2.50% comp
+     * - Compute P&I payment
+     */
+    function buildQuoteFromGrid({
+      label,
+      program,
+      baseRows,
+      loanAmount,
+      ltv,
+      fico,
+      occupancy,
+      propertyType,
+      purpose,
+      stateAbbr,
+      zone,
+      payupFlavor
+    }) {
+      if (!baseRows || baseRows.length === 0) return null;
+
+      // For now: pick lowest rate row
+      const sorted = baseRows.slice().sort((a, b) => a.rate - b.rate);
+      const row = sorted[0];
+      if (!row) return null;
+
+      const baseRate = row.rate;
+      const basePrice = row.price30;
+
+      const llpaAdj = getLlpaAdjustment({
+        program,
+        ltv,
+        fico,
+        occupancy,
+        propertyType,
+        purpose,
+        stateAbbr,
+        zone
+      });
+
+      const payupAdj = getPayupAdjustment({
+        program,
+        rate: baseRate,
+        occupancy,
+        stateAbbr,
+        payupFlavor
+      });
+
+      const finalPrice = basePrice + BROKER_COMP_PERCENT + llpaAdj + payupAdj;
+
+      const termYears = getProgramTermYears(program);
+      const payment = calculateMonthlyPayment(loanAmount, baseRate, termYears);
+
+      return {
+        label,
+        program,
+        rate: baseRate,
+        price: finalPrice,
+        payment,
+        loanAmount,
+        termYears
+      };
+    }
+
+    function getProgramTermYears(program) {
+      // simple mapping – tweak as needed
+      if (program === "conv15" || program === "hr15" || program === "hb15") return 15;
+      if (program === "conv20" || program === "hp20") return 20;
+      // default to 30
+      return 30;
+    }
+
+    // LLPA stub (replace with full LLPA table mapping)
+    function getLlpaAdjustment({ program, ltv, fico, occupancy, propertyType, purpose, stateAbbr, zone }) {
+      // TODO: wire to your full LLPA PDF/Excel grid.
+      return 0;
+    }
+
+    // Payup stub (with special rule: NO payups for High Balance)
+    function getPayupAdjustment({ program, rate, occupancy, stateAbbr, payupFlavor }) {
+      // High Balance: NO payups, ever.
+      if (program === "hb30" || program === "hb15") {
+        return 0;
+      }
+
+      // TODO: wire to your payup matrix:
+      //  - map state + occupancy + payupFlavor (LP/DU) to correct payup cell
+      //  - e.g. NY Primary, Investment-no NY/FL, FL LP vs FL DU, etc.
+      return 0;
+    }
+
+    /**
+     * Monthly P&I payment for fixed-rate mortgage.
+     */
+    function calculateMonthlyPayment(loanAmount, annualRate, termYears) {
+      const r = (annualRate / 100) / 12;
+      const n = termYears * 12;
+      if (r <= 0) return loanAmount / n;
+      return loanAmount * (r / (1 - Math.pow(1 + r, -n)));
+    }
+
+    /***********************************************************************
+     * RENDERING
+     **********************************************************************/
+    function renderSingleCardHtml(q) {
+      const rateStr = q.rate.toFixed(3) + "%";
+      const payStr = "$" + q.payment.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+      return `
+        <div class="w-full flex flex-col items-center justify-center">
+          <div class="max-w-md w-full mx-auto">
+            <div class="border border-slate-200 rounded-2xl px-5 py-4 shadow-sm bg-gradient-to-br from-white to-slate-50">
+              <div class="flex items-center justify-between mb-2">
+                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                  ${q.label}
+                </div>
+              </div>
+              <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="text-left">
+                  <div class="text-xs text-slate-500">Note Rate</div>
+                  <div class="text-2xl font-bold text-slate-900">${rateStr}</div>
+                </div>
+                <div class="text-left sm:text-right">
+                  <div class="text-xs text-slate-500">Monthly Payment (P&amp;I only)</div>
+                  <div class="text-xl font-semibold text-emerald-700">${payStr}</div>
+                </div>
+              </div>
+              <p class="text-[0.7rem] text-slate-500 mt-3">
+                Internal price, LLPA, incentives, and broker compensation are applied behind the scenes
+                and not displayed here.
+              </p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderDualCardsHtml(lp, du) {
+      // A: always show two cards, even if one side missing.
+      const lpAvailable = !!lp;
+      const duAvailable = !!du;
+
+      const lpRate = lpAvailable ? lp.rate.toFixed(3) + "%" : "–";
+      const duRate = duAvailable ? du.rate.toFixed(3) + "%" : "–";
+      const lpPay = lpAvailable
+        ? "$" + lp.payment.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+        : "No pricing available";
+      const duPay = duAvailable
+        ? "$" + du.payment.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+        : "No pricing available";
+
+      return `
+        <div class="w-full">
+          <p class="text-xs text-slate-600 mb-4 text-left">
+            Showing separate Freddie Mac (LP) and Fannie Mae (DU) eligible pricing for this scenario.
+          </p>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="border border-slate-200 rounded-2xl px-5 py-4 shadow-sm bg-gradient-to-br from-white to-slate-50">
+              <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                Fannie Mae LP Eligible
+              </div>
+              <div class="flex flex-col gap-3">
+                <div>
+                  <div class="text-xs text-slate-500">Note Rate</div>
+                  <div class="text-2xl font-bold text-slate-900">${lpRate}</div>
+                </div>
+                <div>
+                  <div class="text-xs text-slate-500">Monthly Payment (P&amp;I only)</div>
+                  <div class="text-xl font-semibold text-emerald-700">
+                    ${lpAvailable ? lpPay : `<span class="text-red-600">${lpPay}</span>`}
+                  </div>
+                </div>
+              </div>
+              <p class="text-[0.7rem] text-slate-500 mt-3">
+                Payups and LLPA for LP are applied internally (except High Balance, which has no payups).
+              </p>
+            </div>
+
+            <div class="border border-slate-200 rounded-2xl px-5 py-4 shadow-sm bg-gradient-to-br from-white to-slate-50">
+              <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                Fannie Mae DU Eligible
+              </div>
+              <div class="flex flex-col gap-3">
+                <div>
+                  <div class="text-xs text-slate-500">Note Rate</div>
+                  <div class="text-2xl font-bold text-slate-900">${duRate}</div>
+                </div>
+                <div>
+                  <div class="text-xs text-slate-500">Monthly Payment (P&amp;I only)</div>
+                  <div class="text-xl font-semibold text-emerald-700">
+                    ${duAvailable ? duPay : `<span class="text-red-600">${duPay}</span>`}
+                  </div>
+                </div>
+              </div>
+              <p class="text-[0.7rem] text-slate-500 mt-3">
+                Payups and LLPA for DU are applied internally (except High Balance, which has no payups).
+              </p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  </script>
 </body>
 </html>
