@@ -10,10 +10,11 @@
 <body>
   <div class="container">
     <h1>Mortgage Pricing Hub</h1>
+    <p class="subtitle">Simple, user-friendly pricing: only note rate & monthly payment shown to the front end.</p>
 
-    <div class="flex">
-      <!-- ================= LEFT SIDE: INPUTS ================= -->
-      <div class="panel">
+    <div class="grid">
+      <!-- ================= LEFT SIDE ================= -->
+      <section class="card">
         <h2>Scenario Details</h2>
 
         <label>Program</label>
@@ -33,7 +34,7 @@
         <select id="occ">
           <option value="primary">Primary Residence</option>
           <option value="second">Second Home</option>
-          <option value="investment">Investment</option>
+          <option value="inv">Investment</option>
         </select>
 
         <label>Property Type</label>
@@ -60,27 +61,34 @@
         <input id="zip" placeholder="e.g. 11230" />
 
         <label>Location (auto)</label>
-        <input id="locationDisplay" disabled placeholder="City / State from ZIP" />
+        <input id="locationDisplay" disabled placeholder="City, State from ZIP" />
 
         <label>Purchase Price</label>
         <input id="pp" placeholder="e.g. 700000" />
 
         <label>Loan Amount</label>
-        <input id="loan" placeholder="Enter or auto" />
+        <input id="loan" placeholder="Auto if PP + LTV entered" />
 
         <label>LTV (%)</label>
-        <input id="ltv" placeholder="Enter or auto" />
+        <input id="ltv" placeholder="Auto if PP + Loan entered" />
 
-        <button id="runPrice">Get Pricing ➜</button>
-      </div>
+        <button id="runPrice" class="btn-primary">Get Pricing ➜</button>
+      </section>
 
-      <!-- ================= RIGHT SIDE: RESULTS ================= -->
-      <div class="panel">
+      <!-- ================= RIGHT SIDE ================= -->
+      <section class="card">
         <h2>Pricing Result</h2>
-        <div id="rateBox"></div>
-        <div id="paymentBox"></div>
-      </div>
+        <p>Only rate & monthly P&I payment shown. LLPA, payups, & broker comp are applied internally.</p>
+
+        <div id="rateBox" class="result-box rate"></div>
+        <div id="paymentBox" class="result-box payment"></div>
+      </section>
     </div>
+
+    <footer>
+      <p class="admin-note">Admin XLS uploads are managed separately in <a href="admin.html">Admin Upload</a>.</p>
+    </footer>
+
   </div>
 
   <script src="pricing-engine.js"></script>
