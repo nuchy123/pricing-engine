@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- SheetJS for Excel (supports .xls and .xlsx) -->
+  <!-- SheetJS for Excel (.xlsx recommended) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
   <style>
     body {
@@ -84,7 +84,7 @@
       </div>
       <div class="flex flex-wrap gap-2">
         <span class="badge badge-blue">Conventional / HP / HR / HB</span>
-        <span class="badge badge-green">Admin XLS Upload</span>
+        <span class="badge badge-green">Admin XLSX Upload</span>
       </div>
     </header>
 
@@ -98,14 +98,14 @@
               Admin – Upload Daily TPO Go Rate Sheet
             </h2>
             <p class="text-xs text-slate-600 mb-3">
-              Upload the original <strong>.xls</strong> or <strong>.xlsx</strong> TPO Go rate sheet.
-              Parsing runs in your browser only. Front-end users never see this panel.
+              Upload a clean <strong>.xlsx</strong> version of the TPO Go rate sheet. 
+              (If you have .xls, first open it in Excel or Google Sheets and save/download as .xlsx.)
             </p>
 
             <div class="flex flex-col md:flex-row gap-3 items-start md:items-center">
               <div class="flex-1 min-w-[220px]">
-                <label class="label">Rate Sheet (.xls / .xlsx)</label>
-                <input id="rateSheetFile" type="file" accept=".xls,.xlsx" class="input bg-white" />
+                <label class="label">Rate Sheet (.xlsx)</label>
+                <input id="rateSheetFile" type="file" accept=".xlsx" class="input bg-white" />
               </div>
               <button id="parseSheetBtn" class="primary-btn mt-2 md:mt-6">
                 <span>Load Pricing</span>
@@ -115,10 +115,9 @@
             <p id="adminStatus" class="text-xs mt-3 text-slate-600"></p>
 
             <p class="text-[0.7rem] mt-3 text-slate-500">
-              Current version: Parses the Conforming 30-Year Fixed grid (30-day column) from the
-              conventional pricing section and stores it in memory. Other programs reuse this grid
-              until their own sections are wired. LLPA &amp; payup functions are present but currently
-              return 0 until we enter the full tables.
+              Current version: Parses the Conforming 30-Year Fixed grid (30-day) from the first sheet that 
+              contains "CONVENTIONAL PRICING" in a row. LLPA &amp; payup functions are present but currently
+              return 0 until we fill them with the real tables.
             </p>
           </div>
         </div>
@@ -269,7 +268,7 @@
           <h2 class="text-lg font-semibold text-slate-900 mb-2">Pricing Result</h2>
           <p class="text-xs text-slate-500 mb-4">
             We only show the <strong>note rate</strong> and <strong>principal &amp; interest payment</strong>.
-            All price, LLPA, payup incentives, and broker compensation are applied internally.
+            All price, LLPA, payup incentives, and broker compensation are applied internally (for now LLPA/payups = 0).
           </p>
 
           <div id="resultArea"
@@ -283,7 +282,6 @@
   </div>
 
   <script>
-    /***************** GLOBAL STATE *****************/
     let conventionalBaseGrid = [];
     const pricingGrids = {};
     const BROKER_COMP_PERCENT = 2.5;
@@ -303,7 +301,7 @@
       setupPricingForm();
     });
 
-    /***************** ADMIN XLS UPLOAD *****************/
+    /**** ADMIN UPLOAD (.XLSX) ****/
     function setupAdminUpload() {
       const fileInput = document.getElementById("rateSheetFile");
       const btn = document.getElementById("parseSheetBtn");
@@ -312,7 +310,7 @@
 
       btn.addEventListener("click", () => {
         if (!fileInput.files || fileInput.files.length === 0) {
-          statusEl.textContent = "Please choose a .xls or .xlsx file first.";
+          statusEl.textContent = "Please choose a .xlsx file first.";
           statusEl.className = "text-xs mt-3 text-red-600";
           return;
         }
@@ -322,50 +320,57 @@
 
         reader.onload = function(e) {
           try {
-            const data = e.target.result; // binary string
-            const workbook = XLSX.read(data, { type: "binary" });
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: "array" });
 
             conventionalBaseGrid = extractConventional30Grid(workbook);
             pricingGrids["conv30"] = conventionalBaseGrid;
 
             if (!conventionalBaseGrid.length) {
               statusEl.textContent =
-                "Loaded file, but could not locate the CONVENTIONAL 30Y grid. Parser may need tuning.";
-              statusEl.className = "text-xs mt-3 text-red-600";
+                "Workbook loaded, but could not locate a 'CONVENTIONAL PRICING' 30-year grid. Check that this tab exists.";
+              statusEl.className = "text-xs mt-3 text-yellow-600";
             } else {
               statusEl.textContent =
-                `Loaded Conforming 30Y pricing (30-day) from ${file.name} – ${conventionalBaseGrid.length} rows captured.`;
+                Loaded Conforming 30Y pricing (30-day) from ${file.name} – ${conventionalBaseGrid.length} rows captured.;
               statusEl.className = "text-xs mt-3 text-green-700";
             }
           } catch (err) {
             console.error(err);
-            statusEl.textContent = "Error reading workbook. Check sheet name/layout or try another file.";
+            statusEl.textContent = "Error reading workbook (not a clean .xlsx or corrupted). Try saving through Excel/Google Sheets as .xlsx and re-upload.";
             statusEl.className = "text-xs mt-3 text-red-600";
           }
         };
 
-        // use binary read so legacy .xls works
-        reader.readAsBinaryString(file);
+        reader.readAsArrayBuffer(file);
       });
     }
 
     function extractConventional30Grid(workbook) {
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+      const rowsBySheet = [];
 
-      let conventionalRowIndex = -1;
-      for (let i = 0; i < rows.length; i++) {
-        const text = rows[i].join(" ").toUpperCase();
-        if (text.includes("CONVENTIONAL PRICING")) {
-          conventionalRowIndex = i;
+      workbook.SheetNames.forEach(name => {
+        const sheet = workbook.Sheets[name];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+        rowsBySheet.push({ name, rows });
+      });
+
+      // Find the first sheet that contains "CONVENTIONAL PRICING"
+      let chosen = null;
+      for (const s of rowsBySheet) {
+        const idx = s.rows.findIndex(r => r.join(" ").toUpperCase().includes("CONVENTIONAL PRICING"));
+        if (idx !== -1) {
+          chosen = { sheetName: s.name, rows: s.rows, startIndex: idx };
           break;
         }
       }
-      if (conventionalRowIndex === -1) return [];
+      if (!chosen) return [];
+
+      const rows = chosen.rows;
+      const startIdx = chosen.startIndex;
 
       let headerRowIndex = -1, rateCol = -1, col30 = -1;
-      for (let i = conventionalRowIndex; i < rows.length; i++) {
+      for (let i = startIdx; i < rows.length; i++) {
         const row = rows[i].map(c => String(c).trim());
         const upper = row.map(c => c.toUpperCase());
         if (upper.includes("RATE") && upper.some(c => c.includes("30"))) {
@@ -382,7 +387,6 @@
         const row = rows[i];
         const rawRate = row[rateCol];
         if (!rawRate || String(rawRate).trim() === "") break;
-
         const rate = parseFloat(String(rawRate).replace(/[^\d.]/g, ""));
         const price30 = parseFloat(String(row[col30]).replace(/[^\d.-]/g, ""));
         if (isNaN(rate) || isNaN(price30)) continue;
@@ -391,7 +395,7 @@
       return grid;
     }
 
-    /***************** ZIP LOOKUP *****************/
+    /**** ZIP LOOKUP ****/
     function setupZipAutoLookup() {
       const zipInput = document.getElementById("zip");
       const cityEl = document.getElementById("cityDisplay");
@@ -410,7 +414,7 @@
         }
         if (zipTimeout) clearTimeout(zipTimeout);
         zipTimeout = setTimeout(() => {
-          fetch(`https://api.zippopotam.us/us/${zip}`)
+          fetch(https://api.zippopotam.us/us/${zip})
             .then(res => {
               if (!res.ok) throw new Error();
               return res.json();
@@ -439,7 +443,7 @@
       return zoneByState[stateAbbr] || 0;
     }
 
-    /***************** LTV AUTOCALC *****************/
+    /**** LTV AUTO CALC ****/
     function setupLtvAutoCalc() {
       const pp = document.getElementById("purchasePrice");
       const la = document.getElementById("loanAmount");
@@ -471,7 +475,7 @@
       ltv.addEventListener("input", recalcFromLtv);
     }
 
-    /***************** PRICING ENGINE *****************/
+    /**** PRICING ENGINE ****/
     function setupPricingForm() {
       const form = document.getElementById("pricingForm");
       const resultArea = document.getElementById("resultArea");
@@ -493,13 +497,13 @@
 
         if (!loanAmount || !purchasePrice || loanAmount <= 0 || purchasePrice <= 0) {
           resultArea.innerHTML =
-            `<p class="text-sm text-red-600">Please enter a valid Purchase Price and Loan Amount (or LTV).</p>`;
+            <p class="text-sm text-red-600">Please enter a valid Purchase Price and Loan Amount (or LTV).</p>;
           return;
         }
 
         if (!conventionalBaseGrid.length) {
           resultArea.innerHTML =
-            `<p class="text-sm text-red-600">No pricing grid loaded. Go to <strong>?admin=1</strong> and upload the daily rate sheet.</p>`;
+            <p class="text-sm text-red-600">No pricing grid loaded. Go to <strong>?admin=1</strong> and upload the daily rate sheet (.xlsx).</p>;
           return;
         }
 
@@ -525,7 +529,7 @@
           });
           if (!duQuote) {
             resultArea.innerHTML =
-              `<p class="text-sm text-red-600">No DU pricing available for this HomeStyle scenario.</p>`;
+              <p class="text-sm text-red-600">No DU pricing available for this HomeStyle scenario.</p>;
             return;
           }
           resultArea.innerHTML = renderSingleCardHtml(duQuote);
@@ -563,7 +567,7 @@
 
         if (!lpQuote && !duQuote) {
           resultArea.innerHTML =
-            `<p class="text-sm text-red-600">No executable pricing found for this scenario.</p>`;
+            <p class="text-sm text-red-600">No executable pricing found for this scenario.</p>;
           return;
         }
         resultArea.innerHTML = renderDualCardsHtml(lpQuote, duQuote);
@@ -632,15 +636,14 @@
       return 30;
     }
 
-    // TODO: fill with real LLPA table logic
+    // Placeholders – safe (no adjustments) until we wire real tables
     function getLlpaAdjustment({ program, ltv, fico, occupancy, propertyType, purpose, stateAbbr, zone }) {
       return 0;
     }
 
-    // TODO: fill with real payup table logic
     function getPayupAdjustment({ program, rate, occupancy, stateAbbr, payupFlavor }) {
-      if (program === "hb30" || program === "hb15") return 0;
-      // When no matching DU payup in table, DU should still price (just 0 payup).
+      if (program === "hb30" || program === "hb15") return 0; // no payups for HB
+      // if DU has no payup row in future table, treat as 0, but still price DU.
       return 0;
     }
 
@@ -651,7 +654,7 @@
       return loanAmount * (r / (1 - Math.pow(1 + r, -n)));
     }
 
-    /***************** RENDERING *****************/
+    /**** RENDERING ****/
     function renderSingleCardHtml(q) {
       const rateStr = q.rate.toFixed(3) + "%";
       const payStr = "$" + q.payment.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -715,7 +718,7 @@
                 <div>
                   <div class="text-xs text-slate-500">Monthly Payment (P&amp;I only)</div>
                   <div class="text-xl font-semibold text-emerald-700">
-                    ${lpAvailable ? lpPay : `<span class="text-red-600">${lpPay}</span>`}
+                    ${lpAvailable ? lpPay : <span class="text-red-600">${lpPay}</span>}
                   </div>
                 </div>
               </div>
@@ -736,7 +739,7 @@
                 <div>
                   <div class="text-xs text-slate-500">Monthly Payment (P&amp;I only)</div>
                   <div class="text-xl font-semibold text-emerald-700">
-                    ${duAvailable ? duPay : `<span class="text-red-600">${duPay}</span>`}
+                    ${duAvailable ? duPay : <span class="text-red-600">${duPay}</span>}
                   </div>
                 </div>
               </div>
