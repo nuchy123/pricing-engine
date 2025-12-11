@@ -2,174 +2,355 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mortgage Pricing Hub</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* small, namespaced tweaks so we don't fight your existing CSS */
+    .mph-shell {
+      max-width: 1100px;
+      margin: 40px auto;
+      padding: 0 16px 40px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .mph-header {
+      margin-bottom: 24px;
+    }
+    .mph-header h1 {
+      font-size: 26px;
+      margin: 0 0 4px;
+    }
+    .mph-main {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      gap: 24px;
+    }
+    @media (max-width: 900px) {
+      .mph-main {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+    .mph-card {
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      padding: 20px 22px 24px;
+    }
+    .mph-card h2 {
+      font-size: 18px;
+      margin: 0 0 16px;
+    }
+    .mph-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px 18px;
+    }
+    .mph-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 13px;
+    }
+    .mph-field label {
+      font-weight: 500;
+    }
+    .mph-input,
+    .mph-select {
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      padding: 7px 10px;
+      font-size: 14px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .mph-input:focus,
+    .mph-select:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 1px #2563eb22;
+    }
+    .mph-actions {
+      margin-top: 20px;
+      display: flex;
+      justify-content: flex-start;
+    }
+    .mph-btn-primary {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 9999px;
+      padding: 10px 26px;
+      font-size: 15px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .mph-btn-primary:hover {
+      background: #1d4ed8;
+    }
+    .mph-pill {
+      border-radius: 9999px;
+      padding: 4px 10px;
+      font-size: 11px;
+      display: inline-block;
+      background: #eff6ff;
+      color: #1d4ed8;
+      margin-left: 6px;
+    }
+    .mph-note {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 8px;
+    }
+    .mph-result-header {
+      font-size: 13px;
+      margin-bottom: 8px;
+      color: #4b5563;
+    }
+    .mph-result-rate {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .mph-result-sub {
+      font-size: 12px;
+      color: #4b5563;
+      margin-bottom: 16px;
+    }
+    .mph-result-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+    .mph-tag-pill {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      background: #f3f4f6;
+      margin-left: 4px;
+    }
+    .mph-small {
+      font-size: 11px;
+      color: #6b7280;
+    }
+    .mph-alert {
+      margin-top: 10px;
+      font-size: 12px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+    .mph-success {
+      margin-top: 10px;
+      font-size: 11px;
+      color: #059669;
+    }
+    .mph-admin-link {
+      font-size: 11px;
+      margin-top: 14px;
+      text-align: right;
+      color: #6b7280;
+    }
+    .mph-admin-link a {
+      color: #2563eb;
+      text-decoration: none;
+    }
+  </style>
 </head>
-
 <body>
-  <div class="app-shell">
-    <header class="app-header">
-      <div>
-        <h1>Mortgage Pricing Hub</h1>
-        <p class="subtitle">
-          Simple, user-friendly pricing: only note rate &amp; monthly P&amp;I shown to the front end.
-        </p>
+  <div class="mph-shell">
+    <header class="mph-header">
+      <h1>Mortgage Pricing Hub</h1>
+      <div style="font-size: 12px; color: #6b7280;">
+        Simple, user-friendly pricing: only note rate &amp; monthly P&amp;I shown to the front end.
       </div>
-      <nav class="header-nav">
-        <a href="admin.html" class="pill-link">Admin XLS Upload</a>
-      </nav>
     </header>
 
-    <main class="app-main">
-      <section class="card form-card">
+    <main class="mph-main">
+      <!-- LEFT: Scenario -->
+      <section class="mph-card">
         <h2>Scenario Details</h2>
 
-        <div class="field">
-  <label for="program">Program</label>
-  <select id="program" class="field-input">
-    <option value="conventional">Conventional</option>
-    <option value="fha">FHA</option>
-    <option value="homePossible">Home Possible</option>
-    <option value="homeReady">HomeReady</option>
-    <option value="nonqm">Non-QM</option>
-  </select>
-</div>
-        <div class="field">
-  <label for="productTerm">Term</label>
-  <select id="productTerm" class="field-input">
-    <!-- This will be filled automatically from the XLS upload -->
-  </select>
-  <small class="field-hint">
-    Terms (30yr / 20yr / 15yr / ARM) will appear based on the uploaded rate sheet.
-  </small>
-</div>
+        <div class="mph-grid">
+          <div class="mph-field">
+            <label for="programSelect">
+              Program
+            </label>
+            <select id="programSelect" class="mph-select">
+              <!-- options filled by JS, but we also set safe defaults -->
+              <option value="conventional">Conventional</option>
+              <option value="fha">FHA</option>
+              <option value="homestyle">Homestyle</option>
+              <option value="homeready">HomeReady</option>
+              <option value="nonqm">Non QM</option>
+            </select>
+          </div>
 
+          <div class="mph-field">
+            <label for="productTerm">
+              Term <span class="mph-pill">Auto from rate sheet</span>
+            </label>
+            <select id="productTerm" class="mph-select">
+              <!-- populated by JS based on uploaded model -->
+            </select>
+          </div>
 
-
-          <div class="field">
-            <label for="lock">Lock Term</label>
-            <select id="lock">
+          <div class="mph-field">
+            <label for="lockDays">
+              Lock Term
+            </label>
+            <select id="lockDays" class="mph-select">
               <option value="30">30 Days</option>
               <option value="45">45 Days</option>
               <option value="60">60 Days</option>
             </select>
           </div>
 
-          <div class="field">
-            <label for="occ">Occupancy</label>
-            <select id="occ">
-              <option value="primary">Primary Residence</option>
-              <option value="second">Second Home</option>
-              <option value="investment">Investment</option>
+          <div class="mph-field">
+            <label for="occupancy">Occupancy</label>
+            <select id="occupancy" class="mph-select">
+              <option value="Primary Residence">Primary Residence</option>
+              <option value="Second Home">Second Home</option>
+              <option value="Investment">Investment Property</option>
             </select>
           </div>
 
-          <div class="field">
-            <label for="ptype">Property Type</label>
-            <select id="ptype">
-              <option value="sf">Single Family / PUD</option>
-              <option value="condo">Condo</option>
-              <option value="2_4">2–4 Unit</option>
+          <div class="mph-field">
+            <label for="propertyType">Property Type</label>
+            <select id="propertyType" class="mph-select">
+              <option value="Single Family / PUD">Single Family / PUD</option>
+              <option value="2-4 Units">2-4 Units</option>
+              <option value="Condo">Condo</option>
+              <option value="Co-op">Co-op</option>
             </select>
           </div>
 
-          <div class="field">
-            <label for="fico">FICO Score</label>
-            <select id="fico">
-              <option value="780">780+</option>
-              <option value="760">760–779</option>
-              <option value="740">740–759</option>
-              <option value="720">720–739</option>
-              <option value="700">700–719</option>
+          <div class="mph-field">
+            <label for="fico">
+              FICO Score
+            </label>
+            <select id="fico" class="mph-select">
+              <option value="780+">780+</option>
+              <option value="760-779">760-779</option>
+              <option value="740-759">740-759</option>
+              <option value="720-739">720-739</option>
+              <option value="700-719">700-719</option>
+              <option value="680-699">680-699</option>
+              <option value="660-679">660-679</option>
+              <option value="640-659">640-659</option>
+              <option value="<640">&lt;640</option>
             </select>
           </div>
 
-          <div class="field">
-            <label for="purpose">Loan Purpose</label>
-            <select id="purpose">
-              <option value="purchase">Purchase</option>
-              <option value="rate_term">Rate &amp; Term Refi</option>
-              <option value="cash_out">Cash-out Refi</option>
+          <div class="mph-field">
+            <label for="loanPurpose">Loan Purpose</label>
+            <select id="loanPurpose" class="mph-select">
+              <option value="Purchase">Purchase</option>
+              <option value="Rate/Term Refi">Rate/Term Refi</option>
+              <option value="Cash-Out Refi">Cash-Out Refi</option>
             </select>
           </div>
 
-          <div class="field">
+          <div class="mph-field">
             <label for="zip">ZIP Code</label>
-            <input id="zip" placeholder="e.g. 11230" />
+            <input id="zip" class="mph-input" type="text" placeholder="e.g. 11230" />
           </div>
 
-          <div class="field">
-            <label for="locationDisplay">Location (auto)</label>
-            <input id="locationDisplay" disabled placeholder="City, State (from ZIP)" />
+          <div class="mph-field">
+            <label for="location">Location (auto)</label>
+            <input id="location" class="mph-input" type="text" placeholder="City, State" readonly />
           </div>
 
-          <div class="field">
-            <label for="pp">Purchase Price</label>
-            <input id="pp" inputmode="decimal" placeholder="e.g. 700000" />
+          <div class="mph-field">
+            <label for="purchasePrice">Purchase Price</label>
+            <input id="purchasePrice" class="mph-input" type="number" placeholder="e.g. 700000" />
           </div>
 
-          <div class="field">
-            <label for="loan">Loan Amount</label>
-            <input id="loan" inputmode="decimal" placeholder="Auto if PP + LTV" />
+          <div class="mph-field">
+            <label for="loanAmount">Loan Amount</label>
+            <input id="loanAmount" class="mph-input" type="number" placeholder="Auto if PP + LTV entered" />
           </div>
 
-          <div class="field">
-            <label for="ltv">LTV (%)</label>
-            <input id="ltv" inputmode="decimal" placeholder="Auto if PP + Loan" />
+          <div class="mph-field">
+            <label for="ltv">
+              LTV (%)
+            </label>
+            <input id="ltv" class="mph-input" type="number" placeholder="Auto if PP + Loan entered" />
           </div>
         </div>
 
-        <div class="actions-row">
-          <button id="runPrice" class="btn-primary">Get Pricing</button>
-          <span id="formHint" class="hint">
-            Either enter <strong>Purchase Price</strong> + <strong>Loan Amount</strong>, or
-            <strong> Purchase Price</strong> + <strong>LTV</strong> and the third will auto-fill.
-          </span>
+        <div class="mph-note">
+          Either enter <strong>Purchase Price + Loan Amount</strong> and LTV will auto-fill,
+          or <strong>Purchase Price + LTV</strong> and Loan Amount will auto-fill.
         </div>
+
+        <div class="mph-actions">
+          <button id="getPricing" class="mph-btn-primary">
+            Get Pricing
+          </button>
+        </div>
+
+        <div id="frontStatus" class="mph-success"></div>
       </section>
 
-      <section class="card result-card">
+      <!-- RIGHT: Pricing -->
+      <section class="mph-card">
         <h2>Pricing Result</h2>
-        <p class="subtitle">
-          We only show note rate &amp; monthly principal &amp; interest payment. All LLPA, payups, incentives
-          and broker compensation are applied internally and never shown to the borrower.
-        </p>
 
-        <div id="resultNotice" class="result-notice">
-          No scenario calculated yet. Fill the form and click <strong>Get Pricing</strong>.
+        <div id="pricingPanel">
+          <div class="mph-result-header">
+            We only show the <strong>note rate</strong> and
+            <strong> principal &amp; interest payment</strong>.
+            All LLPA, payup incentives and broker comp are applied internally.
+          </div>
+
+          <div id="noScenario" class="mph-small">
+            No scenario calculated yet. Fill in the form and click <strong>Get Pricing</strong>.
+          </div>
+
+          <div id="pricingResult" style="display:none;">
+            <div class="mph-result-rate" id="resultRate"></div>
+            <div class="mph-result-sub" id="resultPmt"></div>
+
+            <div class="mph-result-row">
+              <span>Selected Program</span>
+              <span id="resultProgram"></span>
+            </div>
+            <div class="mph-result-row">
+              <span>Term</span>
+              <span id="resultTerm"></span>
+            </div>
+            <div class="mph-result-row">
+              <span>Base price</span>
+              <span id="resultBasePrice"></span>
+            </div>
+            <div class="mph-result-row">
+              <span>Broker comp <span class="mph-tag-pill">+2.50%</span></span>
+              <span id="resultBrokerComp"></span>
+            </div>
+            <div class="mph-result-row">
+              <span>Final internal price</span>
+              <span id="resultFinalPrice"></span>
+            </div>
+
+            <div class="mph-small" style="margin-top:12px;">
+              Taxes, insurance, HOA dues and mortgage insurance are not included in this payment estimate.
+            </div>
+          </div>
+
+          <div id="pricingError" class="mph-alert" style="display:none;"></div>
         </div>
 
-        <div id="duLpWrapper" class="du-lp-wrapper hidden">
-          <div class="du-lp-header">
-            <div class="col-label"></div>
-            <div class="col-label">Fannie Mae DU</div>
-            <div class="col-label">Freddie Mac LP</div>
-          </div>
-
-          <div class="du-lp-row">
-            <div class="row-label">Note Rate</div>
-            <div class="cell" id="rateDU">–</div>
-            <div class="cell" id="rateLP">–</div>
-          </div>
-
-          <div class="du-lp-row">
-            <div class="row-label">Est. Monthly P&amp;I</div>
-            <div class="cell" id="payDU">–</div>
-            <div class="cell" id="payLP">–</div>
-          </div>
+        <div class="mph-admin-link">
+          Admin uploads are managed separately in
+          <a href="admin.html">Admin XLS Upload</a>.
         </div>
-
-        <p id="disclaimer" class="disclaimer hidden">
-          Taxes, insurance, HOA dues and mortgage insurance are not included in this payment estimate.
-        </p>
       </section>
     </main>
-
-    <footer class="app-footer">
-      <span>Admin uploads are managed separately in</span>
-      <a href="admin.html">Admin XLS Upload</a>.
-    </footer>
   </div>
 
   <script src="pricing-engine.js"></script>
