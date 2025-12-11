@@ -160,23 +160,83 @@ function parseSheetIntoProgram(model, workbook, sheetName) {
 
 // Build full model from workbook
 function buildModelFromWorkbook(workbook) {
-  const model = {
-    lastUpdated: new Date().toISOString(),
-    programs: {}
+
+  // ALWAYS use the first sheet in this workbook (your TPO Go WS-NDC)
+  const firstSheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[firstSheetName];
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+
+  // Program header patterns to search for inside sheet rows
+  const PROGRAM_HEADERS = {
+    "conforming": /CONFORMING(?!.*HIGH BALANCE)/i,
+    "high_balance": /CONFORMING.*HIGH BALANCE/i,
+    "fha": /^FHA(?!.*203)/i,
+    "fha_high_balance": /FHA.*HIGH BALANCE/i,
+    "home_possible": /HOME POSSIBLE/i,
+    "home_ready": /HOMEREADY/i,
+    "non_qm": /NON.?QM/i
   };
 
-  workbook.SheetNames.forEach(sheetName => {
-    parseSheetIntoProgram(model, workbook, sheetName);
-  });
+  const model = {
+    lastUpdated: new Date().toISOString(),
+    programs: {},
+    terms: new Set()
+  };
 
-  // Basic sanity check
-  const programCount = Object.keys(model.programs).length;
-  if (!programCount) {
-    throw new Error("No recognizable program sheets were found (Conforming, FHA, Home Possible, HomeReady, Non-QM).");
+  let currentProgramKey = null;
+  let rateColIndex = -1;
+  let priceColIndex = -1;
+
+  for (let r = 0; r < rows.length; r++) {
+    const rowText = (rows[r] || []).join(" ").toUpperCase();
+
+    // 1️⃣ Detect program header
+    for (const [key, pattern] of Object.entries(PROGRAM_HEADERS)) {
+      if (pattern.test(rowText)) {
+        currentProgramKey = key;
+        model.programs[key] = { label: key, grid: [] };
+        rateColIndex = -1;
+        priceColIndex = -1;
+      }
+    }
+
+    if (!currentProgramKey) continue;
+
+    const row = rows[r];
+
+    // 2️⃣ Detect column headers (RATE / 30-DAY)
+    if (rateColIndex === -1 && row.some(c => /^RATE$/i.test(c))) {
+      rateColIndex = row.findIndex(c => /^RATE$/i.test(c));
+      priceColIndex = row.findIndex(c =>
+        (c || "").toUpperCase().includes("30")
+      );
+      continue;
+    }
+
+    // 3️⃣ Extract rate/price rows
+    if (rateColIndex >= 0 && row[rateColIndex]) {
+      const rateNum = parseFloat(String(row[rateColIndex]).replace(/[^\d.]/g, ""));
+      const priceNum = parseFloat(String(row[priceColIndex]).replace(/[^\d.-]/g, ""));
+
+      if (isFinite(rateNum) && isFinite(priceNum)) {
+        model.programs[currentProgramKey].grid.push({ rate: rateNum, price: priceNum });
+      }
+    }
+
+    // 4️⃣ Detect terms inside headers
+    if (/30.?YEAR/i.test(rowText)) model.terms.add("30yr");
+    if (/20.?YEAR/i.test(rowText)) model.terms.add("20yr");
+    if (/15.?YEAR/i.test(rowText)) model.terms.add("15yr");
+    if (/10.?YEAR/i.test(rowText)) model.terms.add("10yr");
+    if (/ARM/i.test(rowText)) model.terms.add("arm");
   }
+
+  // Convert terms Set → array
+  model.terms = Array.from(model.terms);
 
   return model;
 }
+
 
 // ---- File handling --------------------------------------------------------
 
