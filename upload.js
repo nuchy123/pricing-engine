@@ -1,134 +1,185 @@
-// Key used for storing the parsed pricing model in localStorage
-const MODEL_KEY = "tpoPricingModel_v1";
+// upload.js – runs only on admin.html
 
-// Utility: populate the Term dropdown on the front-end
-function populateProductTerms(terms) {
-  const termSelect = document.getElementById('productTerm');
-  if (!termSelect) return;
+// Shared key with front-end
+const MODEL_KEY = "tpoPricingModel_v2";
 
-  termSelect.innerHTML = '';
+// ---- UI helpers -----------------------------------------------------------
 
-  const niceLabels = {
-    '30yr': '30 Year Fixed',
-    '25yr': '25 Year Fixed',
-    '20yr': '20 Year Fixed',
-    '15yr': '15 Year Fixed',
-    '10yr': '10 Year Fixed',
-    'arm': 'ARM'
-  };
-
-  terms.forEach(termKey => {
-    const opt = document.createElement('option');
-    opt.value = termKey;
-    opt.textContent = niceLabels[termKey] || termKey;
-    termSelect.appendChild(opt);
-  });
+function setAdminStatus(msg, isError = false) {
+  const box = document.getElementById("adminStatus");
+  if (!box) return;
+  box.textContent = msg;
+  box.style.backgroundColor = isError ? "#fef2f2" : "#eff6ff";
+  box.style.color = isError ? "#b91c1c" : "#1d4ed8";
+  box.style.borderColor = isError ? "#fecaca" : "#bfdbfe";
 }
 
-// Identify available product terms from sheet names
-function detectTermsFromWorkbook(workbook) {
-  const terms = new Set();
-
-  workbook.SheetNames.forEach(sheetName => {
-    const name = sheetName.toUpperCase();
-
-    if (name.includes("30")) terms.add("30yr");
-    if (name.includes("25")) terms.add("25yr");
-    if (name.includes("20")) terms.add("20yr");
-    if (name.includes("15")) terms.add("15yr");
-    if (name.includes("10")) terms.add("10yr");
-    if (name.includes("ARM")) terms.add("arm");
-  });
-
-  // Fallback if nothing was detected
-  if (terms.size === 0) terms.add("30yr");
-
-  return Array.from(terms);
+// Populate Term dropdown on the USER page (index.html) after upload.
+// We do it by storing the model only; the front-end will read and populate.
+function populateProductTermsFromModel(model) {
+  // nothing to do here – front-end will handle it on load
 }
 
-// Parse workbook → Build placeholder model (kept the same)
-function buildModelFromWorkbook(workbook) {
-  // Detect available terms (Task 3)
-  const detectedTerms = detectTermsFromWorkbook(workbook);
-  populateProductTerms(detectedTerms);
+// ---- Workbook parsing -----------------------------------------------------
 
-  // For now: still use the FIRST sheet as before
-  const firstSheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[firstSheetName];
+// Term patterns to detect headers in the sheet
+const TERM_PATTERNS = [
+  { key: "30yr", regex: /30\s*YEAR/i },
+  { key: "25yr", regex: /25\s*YEAR/i },
+  { key: "20yr", regex: /20\s*YEAR/i },
+  { key: "15yr", regex: /15\s*YEAR/i },
+  { key: "10yr", regex: /10\s*YEAR/i },
+  { key: "arm", regex: /ARM/i }
+];
+
+// Map sheet names to program IDs and whether they are high-balance
+function detectProgramFromSheetName(sheetName) {
+  const name = sheetName.toUpperCase();
+
+  // High-balance vs regular conventional
+  if (name.includes("CONFORMING") && name.includes("HIGH BALANCE")) {
+    return { program: "conventional", highBalance: true };
+  }
+  if (name.includes("CONFORMING") && !name.includes("HIGH BALANCE")) {
+    return { program: "conventional", highBalance: false };
+  }
+
+  // FHA vs FHA High Balance (ignore FHA 203)
+  if (name.includes("FHA") && name.includes("HIGH BALANCE") && !name.includes("203")) {
+    return { program: "fha", highBalance: true };
+  }
+  if (name.includes("FHA") && !name.includes("203")) {
+    return { program: "fha", highBalance: false };
+  }
+
+  // Homestyle -> actually Home Possible tab per your instructions
+  if (name.includes("HOME POSSIBLE")) {
+    return { program: "homestyle", highBalance: false };
+  }
+
+  // HomeReady
+  if (name.includes("HOMEREADY") || name.includes("HOME READY")) {
+    return { program: "homeready", highBalance: false };
+  }
+
+  // Non-QM
+  if (name.includes("NON") && name.includes("QM")) {
+    return { program: "nonqm", highBalance: false };
+  }
+
+  return null;
+}
+
+function ensureProgram(model, id, label) {
+  if (!model.programs[id]) {
+    model.programs[id] = {
+      id,
+      label,
+      grids: {},   // term -> { sourceSheet, rows: [ {rate, price} ] }
+      hbGrids: {}  // high balance version, same structure
+    };
+  }
+  return model.programs[id];
+}
+
+// Parse one sheet into one program
+function parseSheetIntoProgram(model, workbook, sheetName) {
+  const mapping = detectProgramFromSheetName(sheetName);
+  if (!mapping) return;
+
+  const programId = mapping.program;
+  const isHB = mapping.highBalance;
+
+  const sheet = workbook.Sheets[sheetName];
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
 
-  // Find the header row that contains "CONFORMING 30 YEAR FIXED"
-  let headerRowIndex = -1;
-  for (let i = 0; i < rows.length; i++) {
-    const rowText = (rows[i] || []).join(" ").toUpperCase();
-    if (rowText.includes("CONFORMING 30 YEAR FIXED")) {
-      headerRowIndex = i;
+  const programLabelMap = {
+    conventional: "Conventional",
+    fha: "FHA",
+    homestyle: "Homestyle",
+    homeready: "HomeReady",
+    nonqm: "Non QM"
+  };
+
+  const program = ensureProgram(model, programId, programLabelMap[programId] || programId);
+
+  // scan for each term pattern
+  for (const tp of TERM_PATTERNS) {
+    for (let r = 0; r < rows.length; r++) {
+      const row = rows[r] || [];
+      const rowText = row.join(" ").toUpperCase();
+      if (!tp.regex.test(rowText)) continue;
+
+      // Next row: column headers containing RATE and 30-Day
+      const headerRow = rows[r + 1] || [];
+      const rateColIndex = headerRow.findIndex(c => String(c || "").toUpperCase().startsWith("RATE"));
+      // "30" is usually part of "30-Day" heading
+      const col30Index = headerRow.findIndex(c => String(c || "").toUpperCase().includes("30"));
+
+      if (rateColIndex === -1 || col30Index === -1) {
+        continue; // can't parse this section
+      }
+
+      const gridRows = [];
+      for (let rr = r + 2; rr < rows.length; rr++) {
+        const dataRow = rows[rr] || [];
+        const rawRate = String(dataRow[rateColIndex] || "").trim();
+        const rawPrice = String(dataRow[col30Index] || "").trim();
+
+        if (!rawRate && !rawPrice) break; // empty line – end of block
+
+        // If we hit a new section header (another YEAR/ARM), also stop
+        const joined = dataRow.join(" ").toUpperCase();
+        if (joined.includes("YEAR") || joined.includes("ARM")) {
+          break;
+        }
+
+        const rateNum = parseFloat(rawRate.replace(/[^\d.]/g, ""));
+        const priceNum = parseFloat(rawPrice.replace(/[^\d.\-]/g, ""));
+
+        if (!isFinite(rateNum) || !isFinite(priceNum)) continue;
+
+        gridRows.push({ rate: rateNum, price: priceNum });
+      }
+
+      if (!gridRows.length) continue;
+
+      const target = isHB ? program.hbGrids : program.grids;
+      if (!target[tp.key]) {
+        target[tp.key] = {
+          sourceSheet: sheetName,
+          rows: gridRows
+        };
+      }
+
+      // Stop searching further rows for this same term; go to next term pattern.
       break;
     }
   }
+}
 
-  if (headerRowIndex === -1) {
-    throw new Error("Could not find 'CONFORMING 30 YEAR FIXED' section in sheet.");
-  }
-
-  // Next row should contain the column labels including "30-Day"
-  const colHeader = rows[headerRowIndex + 1] || [];
-  const rateColIndex = colHeader.findIndex((c) =>
-    String(c || "").toUpperCase().startsWith("RATE")
-  );
-  const col30Index = colHeader.findIndex((c) =>
-    String(c || "").toUpperCase().includes("30")
-  );
-
-  if (rateColIndex === -1 || col30Index === -1) {
-    throw new Error("Could not find RATE / 30-Day columns in pricing grid.");
-  }
-
-  const baseGrid = [];
-
-  // Following rows contain rate / price pairs until we hit a blank or a new section
-  for (let r = headerRowIndex + 2; r < rows.length; r++) {
-    const row = rows[r] || [];
-    const rawRate = String(row[rateColIndex] || "").trim();
-    const rawPrice = String(row[col30Index] || "").trim();
-
-    // Stop if we hit an empty line or a new header
-    if (!rawRate && !rawPrice) break;
-    if (rawRate.toUpperCase().includes("CONFORMING")) break;
-
-    const rateNum = parseFloat(rawRate.replace(/[^\d.]/g, ""));
-    const priceNum = parseFloat(rawPrice.replace(/[^\d.-]/g, ""));
-
-    if (!isFinite(rateNum) || !isFinite(priceNum)) continue;
-
-    baseGrid.push({
-      rate: rateNum,
-      price: priceNum
-    });
-  }
-
-  if (!baseGrid.length) {
-    throw new Error("No pricing rows were found under the Conforming 30 Year Fixed section.");
-  }
-
-  // Model structure stays simple for now
+// Build full model from workbook
+function buildModelFromWorkbook(workbook) {
   const model = {
     lastUpdated: new Date().toISOString(),
-    sourceSheet: firstSheetName,
-    availableTerms: detectedTerms,   // <-- NEW FIELD
-    programs: {
-      conf_30: {
-        id: "conf_30",
-        label: "Conforming 30 Year Fixed",
-        baseGrid
-      }
-    }
+    programs: {}
   };
+
+  workbook.SheetNames.forEach(sheetName => {
+    parseSheetIntoProgram(model, workbook, sheetName);
+  });
+
+  // Basic sanity check
+  const programCount = Object.keys(model.programs).length;
+  if (!programCount) {
+    throw new Error("No recognizable program sheets were found (Conforming, FHA, Home Possible, HomeReady, Non-QM).");
+  }
 
   return model;
 }
 
-// Handle file selection and parsing
+// ---- File handling --------------------------------------------------------
+
 function handleFile(file) {
   if (!file) {
     setAdminStatus("Please choose a rate sheet file first.", true);
@@ -140,16 +191,30 @@ function handleFile(file) {
   reader.onload = (ev) => {
     try {
       const data = new Uint8Array(ev.target.result);
+      // xlsx.full.min.js can read both .xls and .xlsx from an ArrayBuffer
       const workbook = XLSX.read(data, { type: "array" });
 
       const model = buildModelFromWorkbook(workbook);
 
-      // Store in localStorage
       localStorage.setItem(MODEL_KEY, JSON.stringify(model));
 
+      // light summary for the admin
+      const programSummary = Object.values(model.programs)
+        .map(p => {
+          const terms = new Set([
+            ...Object.keys(p.grids || {}),
+            ...Object.keys(p.hbGrids || {})
+          ]);
+          return `${p.label}: ${Array.from(terms).join(", ") || "no terms"}`;
+        })
+        .join(" | ");
+
       setAdminStatus(
-        `Loaded ${file.name}. Found ${model.programs.conf_30.baseGrid.length} rows.`
+        `Loaded ${file.name}. Programs detected: ${programSummary}`,
+        false
       );
+
+      populateProductTermsFromModel(model);
     } catch (err) {
       console.error(err);
       setAdminStatus(
@@ -166,6 +231,7 @@ function handleFile(file) {
   reader.readAsArrayBuffer(file);
 }
 
+// Wire up events
 document.addEventListener("DOMContentLoaded", () => {
   const fileInput = document.getElementById("rateFile");
   const loadBtn = document.getElementById("loadPricing");
