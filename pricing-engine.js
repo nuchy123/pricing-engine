@@ -68,6 +68,15 @@ const TERM_LABELS = {
   "arm": "ARM"
 };
 
+const ZIP_FALLBACKS = {
+  // A tiny built-in map so ZIP autofill still works even if the public API call is blocked
+  "11230": { city: "Brooklyn", state: "NY", county: "Kings" },
+  "30301": { city: "Atlanta", state: "GA", county: "Fulton" },
+  "60601": { city: "Chicago", state: "IL", county: "Cook" },
+  "77002": { city: "Houston", state: "TX", county: "Harris" },
+  "90012": { city: "Los Angeles", state: "CA", county: "Los Angeles" }
+};
+
 function termKeyToYears(termKey) {
   switch (termKey) {
     case "30yr": return 30;
@@ -170,6 +179,11 @@ function populateProgramDropdown() {
     opt.textContent = PROGRAM_LABELS[id] || id;
     select.appendChild(opt);
   });
+
+  // Ensure a deterministic default selection so dependent dropdowns populate.
+  if (!select.value) {
+    select.value = programs[0];
+  }
 }
 
 function populateTermDropdownForProgram(programId) {
@@ -177,25 +191,98 @@ function populateTermDropdownForProgram(programId) {
   if (!termSelect) return;
   termSelect.innerHTML = "";
 
+  const defaultTerms = ["30yr", "25yr", "20yr", "15yr", "10yr", "arm"];
+
   if (!pricingModel || !pricingModel.programs || !pricingModel.programs[programId]) {
+    defaultTerms.forEach(termKey => {
+      const opt = document.createElement("option");
+      opt.value = termKey;
+      opt.textContent = TERM_LABELS[termKey] || termKey;
+      termSelect.appendChild(opt);
+    });
     return;
   }
+
   const program = pricingModel.programs[programId];
   const termSet = new Set([
     ...Object.keys(program.grids || {}),
     ...Object.keys(program.hbGrids || {})
   ]);
 
-  const termKeys = ["30yr", "25yr", "20yr", "15yr", "10yr", "arm"].filter(k =>
-    termSet.has(k)
-  );
+  const termKeys = defaultTerms.filter(k => termSet.has(k));
 
-  termKeys.forEach(termKey => {
+  const keysToRender = termKeys.length ? termKeys : defaultTerms;
+
+  keysToRender.forEach(termKey => {
     const opt = document.createElement("option");
     opt.value = termKey;
     opt.textContent = TERM_LABELS[termKey] || termKey;
     termSelect.appendChild(opt);
   });
+
+  if (!termSelect.value && termSelect.options.length) {
+    termSelect.value = termSelect.options[0].value;
+  }
+}
+
+// ---- ZIP lookup -----------------------------------------------------------
+
+function setLocationField(text) {
+  const loc = getEl("location");
+  if (!loc) return;
+  loc.value = text || "";
+}
+
+function normalizeZip(zip) {
+  return (zip || "")
+    .replace(/\D/g, "")
+    .slice(0, 5);
+}
+
+async function lookupZipAndFill(zip) {
+  const cleanZip = normalizeZip(zip);
+  if (cleanZip.length < 5) {
+    setLocationField("");
+    return;
+  }
+
+  try {
+    const zipRes = await fetch(`https://api.zippopotam.us/us/${cleanZip}`);
+    if (!zipRes.ok) throw new Error("ZIP not found");
+    const zipData = await zipRes.json();
+
+    const firstPlace = (zipData.places && zipData.places[0]) || null;
+    const city = firstPlace ? firstPlace["place name"] : "";
+    const state = firstPlace ? firstPlace["state abbreviation"] : "";
+
+    let county = "";
+    if (firstPlace && firstPlace.latitude && firstPlace.longitude) {
+      const countyRes = await fetch(
+        `https://geo.fcc.gov/api/census/block/find?format=json&latitude=${firstPlace.latitude}&longitude=${firstPlace.longitude}`
+      );
+      if (countyRes.ok) {
+        const countyData = await countyRes.json();
+        county = (countyData && countyData.County && countyData.County.name) || "";
+      }
+    }
+
+    const locationParts = [city, state].filter(Boolean).join(", ");
+    const countyPart = county ? ` (${county} County)` : "";
+    setLocationField(`${locationParts}${countyPart}`);
+  } catch (err) {
+    console.error("ZIP lookup failed", err);
+    const fallback = ZIP_FALLBACKS[cleanZip];
+    if (fallback) {
+      const locationParts = [fallback.city, fallback.state].filter(Boolean).join(", ");
+      const countyPart = fallback.county ? ` (${fallback.county} County)` : "";
+      setLocationField(`${locationParts}${countyPart}`);
+      setFrontStatus("ZIP auto-fill used a local fallback because the live lookup failed.");
+      return;
+    }
+
+    setFrontStatus("ZIP lookup failed. Please check your connection or try a different ZIP.");
+    setLocationField("");
+  }
 }
 
 // ---- LTV auto-calcs -------------------------------------------------------
@@ -282,44 +369,73 @@ function loadModelFromStorage() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  pricingModel = loadModelFromStorage();
+  try {
+    pricingModel = loadModelFromStorage();
 
-  if (!pricingModel) {
-    setFrontStatus("No rate sheet is loaded yet. Please upload one in the Admin XLS Upload page.");
-  } else {
-    setFrontStatus(`Pricing model loaded. Last updated: ${pricingModel.lastUpdated || ""}`);
+    if (!pricingModel) {
+      setFrontStatus("No rate sheet is loaded yet. Please upload one in the Admin XLS Upload page.");
+    } else {
+      setFrontStatus(`Pricing model loaded. Last updated: ${pricingModel.lastUpdated || ""}`);
+    }
+
+    populateProgramDropdown();
+
+    const programSelect = getEl("programSelect");
+    if (programSelect) {
+      programSelect.addEventListener("change", () => {
+        populateTermDropdownForProgram(programSelect.value);
+      });
+    }
+
+    // Initial terms for default program
+    populateTermDropdownForProgram((programSelect && programSelect.value) || "conventional");
+
+    // Wiring P / L / LTV auto-calcs
+    const pp = getEl("purchasePrice");
+    const la = getEl("loanAmount");
+    const ltv = getEl("ltv");
+    const zipInput = getEl("zip");
+
+    if (pp && la) {
+      pp.addEventListener("input", () => {
+        recalcFromPurchaseAndLoan();
+      });
+      la.addEventListener("input", () => {
+        recalcFromPurchaseAndLoan();
+      });
+    }
+    if (ltv && pp) {
+      ltv.addEventListener("input", () => {
+        recalcFromPurchaseAndLTV();
+      });
+    }
+    if (zipInput) {
+      const runZipLookup = () => lookupZipAndFill(zipInput.value);
+      zipInput.addEventListener("blur", runZipLookup);
+      zipInput.addEventListener("change", runZipLookup);
+      zipInput.addEventListener("input", () => {
+        const normalized = normalizeZip(zipInput.value);
+        if (zipInput.value !== normalized) {
+          zipInput.value = normalized;
+        }
+
+        if (normalized.length === 5) {
+          lookupZipAndFill(normalized);
+        }
+      });
+    }
+
+    const getBtn = getEl("getPricing");
+    if (getBtn) {
+      getBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        handleGetPricing();
+      });
+    }
+
+    showNoScenario();
+  } catch (err) {
+    console.error("Pricing init failed", err);
+    setFrontStatus("Pricing UI could not start. Please reload the page and try again.");
   }
-
-  populateProgramDropdown();
-
-  const programSelect = getEl("programSelect");
-  programSelect.addEventListener("change", () => {
-    populateTermDropdownForProgram(programSelect.value);
-  });
-
-  // Initial terms for default program
-  populateTermDropdownForProgram(programSelect.value || "conventional");
-
-  // Wiring P / L / LTV auto-calcs
-  const pp = getEl("purchasePrice");
-  const la = getEl("loanAmount");
-  const ltv = getEl("ltv");
-
-  pp.addEventListener("input", () => {
-    recalcFromPurchaseAndLoan();
-  });
-  la.addEventListener("input", () => {
-    recalcFromPurchaseAndLoan();
-  });
-  ltv.addEventListener("input", () => {
-    recalcFromPurchaseAndLTV();
-  });
-
-  const getBtn = getEl("getPricing");
-  getBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    handleGetPricing();
-  });
-
-  showNoScenario();
 });

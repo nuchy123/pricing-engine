@@ -195,7 +195,13 @@
               Term <span class="mph-pill">Auto from rate sheet</span>
             </label>
             <select id="productTerm" class="mph-select">
-              <!-- populated by JS based on uploaded model -->
+              <!-- JS will override, but we render safe defaults so the dropdown is never empty -->
+              <option value="30yr">30 Year Fixed</option>
+              <option value="25yr">25 Year Fixed</option>
+              <option value="20yr">20 Year Fixed</option>
+              <option value="15yr">15 Year Fixed</option>
+              <option value="10yr">10 Year Fixed</option>
+              <option value="arm">ARM</option>
             </select>
           </div>
 

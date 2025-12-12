@@ -1,0 +1,11 @@
+{
+  "name": "pricing-engine",
+  "version": "1.0.0",
+  "description": "Static mortgage pricing engine UI",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check pricing-engine.js",
+    "check:server": "node --check server.js"
+  }
+}
